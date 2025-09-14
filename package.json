@@ -1,0 +1,18 @@
+{
+  "name": "mines-stars-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/app.js",
+    "dev": "NODE_ENV=development node server/app.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "grammy": "^1.28.0",
+    "morgan": "^1.10.0",
+    "pg": "^8.12.0"
+  }
+}
