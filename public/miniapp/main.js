@@ -9,6 +9,8 @@ const state = {
   profile: null,
   cooldownRemain: 0
 };
+// If running inside Telegram WebApp, ensure initData is picked up
+if (tg && !state.initData) state.initData = tg.initData || "";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -25,7 +27,7 @@ $$(".tab-button").forEach((btn)=>btn.addEventListener("click",()=>switchTab(btn.
 async function api(path, opts={}){
   const res = await fetch(path, {
     method: opts.method || "GET",
-    headers: { "content-type":"application/json", "authorization": `twa ${state.initData}` },
+    headers: { "content-type":"application/json", "authorization": `twa ${state.initData}`, "X-Telegram-InitData": state.initData },
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
   const data = await res.json();
@@ -164,7 +166,7 @@ $("#buy-mc").addEventListener('click', async ()=>{
   try{
     const res = await api('/api/shop/buy-pickaxe', { method: 'POST', body: { method: 'mc' } });
     await loadProfile(); await loadShop();
-    alert('Куплено за MC');
+    alert('Купл��но за MC');
   }catch(e){ alert(e.data?.error || e.message); }
 });
 

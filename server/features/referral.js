@@ -15,13 +15,13 @@ router.post('/set', async (req, res) => {
     const refTg = req.body?.referrer_telegram_id;
     if (!refTg) return res.status(400).json({ ok: false, error: 'missing_referrer' });
 
-    const userRow = await query('SELECT id, referrer_user_id FROM users WHERE telegram_id = $1 OR tg_id = $1', [BigInt(tgUser.id)]);
+    const userRow = await query('SELECT id, referrer_user_id FROM users WHERE telegram_id = $1 OR tg_id = $1', [String(tgUser.id)]);
     if (userRow.rowCount === 0) return res.status(403).json({ ok: false, error: 'no_user' });
     const user = userRow.rows[0];
     if (user.referrer_user_id) return res.status(400).json({ ok: false, error: 'already_has_referrer' });
 
     // find referrer
-    const refRow = await query('SELECT id FROM users WHERE telegram_id = $1 OR tg_id = $1', [BigInt(refTg)]);
+    const refRow = await query('SELECT id FROM users WHERE telegram_id = $1 OR tg_id = $1', [String(refTg)]);
     if (refRow.rowCount === 0) return res.status(404).json({ ok: false, error: 'referrer_not_found' });
     const refId = refRow.rows[0].id;
 

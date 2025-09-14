@@ -12,7 +12,7 @@ router.post('/notify', async (req, res) => {
     const { telegram_id, stars_amount, mc_amount, provider } = req.body || {};
     if (!telegram_id || !stars_amount) return res.status(400).json({ ok: false, error: 'missing' });
 
-    const tg = BigInt(telegram_id);
+    const tg = String(telegram_id);
     const ures = await query('SELECT id, username, first_name FROM users WHERE telegram_id = $1 OR tg_id = $1', [tg]);
     if (ures.rowCount === 0) return res.status(404).json({ ok: false, error: 'no_user' });
     const user = ures.rows[0];

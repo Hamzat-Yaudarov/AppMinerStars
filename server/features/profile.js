@@ -5,7 +5,7 @@ import { pool, query } from "../db/pool.js";
 const router = express.Router();
 
 async function ensureUser(telegramUser) {
-  const tgId = BigInt(telegramUser.id);
+  const tgId = String(telegramUser.id);
 
   // detect which telegram id column exists (telegram_id or tg_id or both)
   const cols = (await query(`SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name IN ('telegram_id','tg_id')`)).rows.map(r=>r.column_name);
