@@ -36,3 +36,26 @@ body{margin:0;background:radial-gradient(1000px 600px at 50% -20%,rgba(34,211,23
 .modal-content input, .modal-content select{width:100%;padding:8px;margin-top:6px;border-radius:8px;border:1px solid #0f172a;background:#071226;color:var(--text)}
 
 @media (min-width:480px){.inventory-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Ensure hidden attribute actually hides modal */
+.modal[hidden]{display:none !important}
+
+/* Modal close button styles (moved from inline) */
+.modal-close-btn{position:absolute;right:12px;top:12px;background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer}
+
+/* Action rows */
+.action-row{display:flex;gap:8px}
+.action-row--bottom{margin-bottom:10px}
+.action-row--top{margin-top:10px}
+
+/* Case cards */
+.case-card{flex:1;background:#071226;border-radius:12px;padding:12px;border:1px solid #1f2937}
+.case-anim{margin-top:12px}
+
+/* Section helpers */
+.section-note{margin-top:8px;color:var(--muted)}
+.button-row{display:flex;gap:8px;margin-top:8px}
+.section-space{margin-top:12px}
+
+/* Modal actions */
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}

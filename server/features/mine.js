@@ -78,7 +78,7 @@ router.post("/dig", async (req, res) => {
     const tgUser = getAuthorizedUser(initData, process.env.TG_BOT_TOKEN);
     if (!tgUser) return res.status(401).json({ ok: false, error: "unauthorized" });
 
-    const tgId = BigInt(tgUser.id);
+    const tgId = String(tgUser.id);
     const ures = await query("SELECT id, pickaxe_level, last_dig_at FROM users WHERE telegram_id = $1 OR tg_id = $1", [tgId]);
     if (ures.rowCount === 0) return res.status(403).json({ ok: false, error: "no_user" });
     const user = ures.rows[0];
@@ -120,7 +120,7 @@ router.post("/sell", async (req, res) => {
     const { resource, amount } = req.body || {};
     if (!resource || !["coal","copper","iron","gold","diamond"].includes(resource)) return res.status(400).json({ ok: false, error: "invalid_resource" });
 
-    const tgId = BigInt(tgUser.id);
+    const tgId = String(tgUser.id);
     const ures = await query("SELECT id FROM users WHERE telegram_id = $1 OR tg_id = $1", [tgId]);
     if (ures.rowCount === 0) return res.status(403).json({ ok: false, error: "no_user" });
     const user = ures.rows[0];
