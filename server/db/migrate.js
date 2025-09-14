@@ -71,5 +71,39 @@ EXECUTE PROCEDURE trg_set_timestamp();
 `;
 
 export async function initDb() {
+  // Run base schema
   await query(schemaSql);
+
+  // Ensure expected columns exist (in case tables were created with different names/locales)
+  const alterSql = `
+  ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS telegram_id BIGINT UNIQUE,
+    ADD COLUMN IF NOT EXISTS username TEXT,
+    ADD COLUMN IF NOT EXISTS first_name TEXT,
+    ADD COLUMN IF NOT EXISTS last_name TEXT,
+    ADD COLUMN IF NOT EXISTS referrer_user_id BIGINT REFERENCES users(id),
+    ADD COLUMN IF NOT EXISTS stars_balance BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS mines_coins BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS pickaxe_level INT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS last_dig_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+  CREATE TABLE IF NOT EXISTS resources (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE
+  );
+  ALTER TABLE resources
+    ADD COLUMN IF NOT EXISTS coal BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS copper BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS iron BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS gold BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS diamond BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+  `;
+
+  try {
+    await query(alterSql);
+  } catch (e) {
+    console.warn('Schema alter warning', e?.message || e);
+  }
 }

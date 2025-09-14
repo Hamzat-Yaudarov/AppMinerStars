@@ -60,6 +60,14 @@ app.use("/api/bot", webhookCallbackInstance);
 const PORT = process.env.PORT || 3000;
 
 (async () => {
+  // initialize bot info so handleUpdate works
+  try {
+    await bot.init();
+    console.log('Bot initialized');
+  } catch (e) {
+    console.warn('Bot init warning:', e?.message || e);
+  }
+
   await initDb();
 
   const server = app.listen(PORT, async () => {

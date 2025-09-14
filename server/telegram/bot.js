@@ -30,6 +30,9 @@ import express from "express";
 const router = express.Router();
 router.post("/", express.json(), async (req, res) => {
   try {
+    if (!bot.botInfo) {
+      try { await bot.init(); } catch (e) { console.warn('bot.init failed in webhook', e?.message || e); }
+    }
     await bot.handleUpdate(req.body);
     res.sendStatus(200);
   } catch (err) {
