@@ -43,7 +43,7 @@ router.post('/open', async (req, res) => {
     const tgUser = getAuthorizedUser(initData, process.env.TG_BOT_TOKEN);
     if (!tgUser) return res.status(401).json({ ok: false, error: 'unauthorized' });
 
-    const userRow = await query('SELECT id, stars_balance FROM users WHERE telegram_id = $1', [BigInt(tgUser.id)]);
+    const userRow = await query('SELECT id, stars_balance FROM users WHERE telegram_id = $1 OR tg_id = $1', [BigInt(tgUser.id)]);
     if (userRow.rowCount === 0) return res.status(403).json({ ok: false, error: 'no_user' });
     const user = userRow.rows[0];
 

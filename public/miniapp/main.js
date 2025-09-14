@@ -124,6 +124,8 @@ $("#sell-cancel").addEventListener("click", ()=>{ $("#sell-modal").hidden = true
 // close modal by clicking overlay
 $("#sell-modal").addEventListener('click', (e)=>{ if (e.target === e.currentTarget) { e.currentTarget.hidden = true; } });
 window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') { const m = $("#sell-modal"); if (m) m.hidden = true; } });
+// close button
+const sellClose = document.getElementById('sell-close'); if (sellClose) sellClose.addEventListener('click', ()=>{ const m = $("#sell-modal"); if (m) m.hidden = true; });
 
 async function submitSell(){
   const resource = $("#sell-resource").value;

@@ -8,17 +8,19 @@ export const bot = new Bot(token);
 // Handlers
 bot.command("start", async (ctx) => {
   const user = ctx.from;
+  console.log('Received /start from', user.id, user.username);
   const webAppUrl = (process.env.BASE_URL || "").replace(/\/$/, "");
   const kb = new InlineKeyboard().webApp("Play", `${webAppUrl}/miniapp/`);
 
   const welcome = [
-    `Д��бро пожаловать в Mines Stars, ${user.first_name || "игрок"}!`,
+    `Добро пожаловать в Mines Stars, ${user.first_name || "игрок"}!`,
     "Добывай руду, улучшай кирку, открывай кейсы и поднимайся в рейтингах.",
     "Нажми Play, чтобы открыть MiniApp."
   ].join("\n\n");
 
   try {
     await ctx.reply(welcome, { reply_markup: kb });
+    console.log('/start reply sent to', user.id);
   } catch (e) {
     console.error("/start reply error", e);
   }

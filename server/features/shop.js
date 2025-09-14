@@ -15,7 +15,7 @@ router.get("/", async (req, res) => {
     if (!tgUser) return res.status(401).json({ ok: false, error: "unauthorized" });
 
     const tgId = BigInt(tgUser.id);
-    const ures = await query("SELECT id, pickaxe_level, stars_balance, mines_coins FROM users WHERE telegram_id = $1", [tgId]);
+    const ures = await query("SELECT id, pickaxe_level, stars_balance, mines_coins FROM users WHERE telegram_id = $1 OR tg_id = $1", [tgId]);
     if (ures.rowCount === 0) return res.status(403).json({ ok: false, error: "no_user" });
     const user = ures.rows[0];
 
@@ -38,7 +38,7 @@ router.post("/buy-pickaxe", async (req, res) => {
 
     const method = req.body?.method || "mc"; // 'mc' or 'stars'
     const tgId = BigInt(tgUser.id);
-    const ures = await query("SELECT id, pickaxe_level, stars_balance, mines_coins FROM users WHERE telegram_id = $1", [tgId]);
+    const ures = await query("SELECT id, pickaxe_level, stars_balance, mines_coins FROM users WHERE telegram_id = $1 OR tg_id = $1", [tgId]);
     if (ures.rowCount === 0) return res.status(403).json({ ok: false, error: "no_user" });
     const user = ures.rows[0];
 

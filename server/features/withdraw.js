@@ -14,7 +14,7 @@ router.post("/", async (req, res) => {
     if (!tgUser) return res.status(401).json({ ok: false, error: "unauthorized" });
 
     const tgId = BigInt(tgUser.id);
-    const ures = await query("SELECT id, stars_balance FROM users WHERE telegram_id = $1", [tgId]);
+    const ures = await query("SELECT id, stars_balance FROM users WHERE telegram_id = $1 OR tg_id = $1", [tgId]);
     if (ures.rowCount === 0) return res.status(403).json({ ok: false, error: "no_user" });
     const user = ures.rows[0];
 
