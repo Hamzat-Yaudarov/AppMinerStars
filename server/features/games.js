@@ -1,6 +1,7 @@
 import express from "express";
 import { getAuthorizedUser } from "../utils/twa.js";
 import { query } from "../db/pool.js";
+import { findUserByTelegramId } from "../utils/users.js";
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.post('/ladder', async (req, res) => {
     const tgUser = getAuthorizedUser(initData, process.env.TG_BOT_TOKEN);
     if (!tgUser) return res.status(401).json({ ok: false, error: 'unauthorized' });
 
-    const userRow = await query('SELECT id, stars_balance FROM users WHERE telegram_id = $1 OR tg_id = $1', [String(tgUser.id)]);
+    const userRow = await findUserByTelegramId(String(tgUser.id), 'id, stars_balance');
     if (userRow.rowCount === 0) return res.status(403).json({ ok: false, error: 'no_user' });
     const user = userRow.rows[0];
 
