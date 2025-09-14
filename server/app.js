@@ -1,4 +1,5 @@
 import express from "express";
+import "./config/normalize.js"; // normalize env aliases early
 import morgan from "morgan";
 import cors from "cors";
 import bodyParser from "body-parser";
@@ -26,8 +27,21 @@ app.use(bodyParser.json());
 // Health
 app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
 
+// Redirect root to miniapp
+app.get("/", (_req, res) => res.redirect('/miniapp/'));
+
 // Static MiniApp
 app.use("/", express.static(path.join(__dirname, "../public")));
+
+// Debug: webhook info (admin)
+app.get('/api/bot/info', async (req, res) => {
+  try {
+    const info = await bot.api.getWebhookInfo();
+    res.json({ ok: true, info });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || String(err) });
+  }
+});
 
 // API routes (MiniApp)
 app.use("/api/mine", mineRouter);
