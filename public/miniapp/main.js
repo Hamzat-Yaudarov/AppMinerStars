@@ -40,8 +40,8 @@ function fmtNum(n){ return new Intl.NumberFormat("ru").format(n); }
 async function loadProfile(){
   const { data } = await api("/api/profile");
   state.profile = data;
-  // username
-  $("#profile-username").textContent = data.username ? `@${data.username}` : (data.first_name || 'Игрок');
+  const usernameEl = $("#profile-username");
+  if (usernameEl) usernameEl.textContent = data.username ? (`@${data.username}`) : (data.first_name || '—');
   $("#pickaxe-level").textContent = data.pickaxe_level;
   $("#stars-balance").textContent = fmtNum(data.stars_balance);
   $("#mc-balance").textContent = fmtNum(data.mines_coins);
@@ -179,6 +179,100 @@ $("#buy-stars").addEventListener('click', async ()=>{
     alert('Куплено за ⭐');
   }catch(e){ alert(e.data?.error || e.message); }
 });
+
+// Inline Buy Stars (MiniApp): open invoice via Telegram WebApp
+const buyAmounts = [50,100,250,500,1000,2500,10000];
+function buildInvoicePayload(amount){
+  return JSON.stringify({ action: 'buy_stars', amount });
+}
+
+async function openInvoice(amount){
+  const tg = window.Telegram?.WebApp;
+  if (!tg || (!tg.openInvoice && !tg.requestInvoice)){
+    // fallback: ask server to send invoice in chat
+    try{
+      await api('/api/payments/create-invoice', { method: 'POST', body: { amount } });
+      alert('Счёт отправлен в чат бота. Подтвердите оплату там.');
+    }catch(e){ alert(e.data?.error || e.message); }
+    return;
+  }
+
+  const invoice = {
+    title: `Пополнение ${amount} ⭐`,
+    description: `Покупка ${amount} Telegram Stars для Mines Stars`,
+    payload: buildInvoicePayload(amount),
+    provider_token: '',
+    currency: 'XTR',
+    prices: [{ label: `${amount} ⭐`, amount: amount * 100 }]
+  };
+
+  try{
+    if (tg.openInvoice) tg.openInvoice(invoice);
+    else if (tg.requestInvoice) tg.requestInvoice(invoice);
+  }catch(e){
+    console.error('invoice open failed', e); alert('Не удалось открыть платежное окно');
+  }
+}
+
+// Open buy modal
+$("#buy-stars-inline").addEventListener('click', ()=>{ $("#buy-modal").hidden = false; });
+$("#buy-cancel").addEventListener('click', ()=>{ $("#buy-modal").hidden = true; });
+$("#buy-modal").addEventListener('click', (e)=>{ if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
+const buyClose = document.getElementById('buy-close'); if (buyClose) buyClose.addEventListener('click', ()=>{ const m = $("#buy-modal"); if (m) m.hidden = true; });
+
+// choose buy amount
+let selectedBuyAmount = null;
+$$('.buy-amount').forEach(b=>b.addEventListener('click', ()=>{
+  $$('.buy-amount').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  selectedBuyAmount = Number(b.dataset.amount);
+  // open invoice immediately
+  openInvoice(selectedBuyAmount);
+  $("#buy-modal").hidden = true;
+}));
+
+// Withdraw handlers (MiniApp)
+$("#withdraw-stars").addEventListener('click', ()=>{ $("#withdraw-modal").hidden = false; });
+$("#withdraw-cancel").addEventListener('click', ()=>{ $("#withdraw-modal").hidden = true; });
+$("#withdraw-cancel-2").addEventListener('click', ()=>{ $("#withdraw-modal").hidden = true; });
+$("#withdraw-modal").addEventListener('click', (e)=>{ if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
+const withdrawClose = document.getElementById('withdraw-close'); if (withdrawClose) withdrawClose.addEventListener('click', ()=>{ const m = $("#withdraw-modal"); if (m) m.hidden = true; });
+
+let selectedWithdrawAmount = null;
+// tabs
+$$('.withdraw-tab').forEach(t=>t.addEventListener('click', ()=>{
+  const tab = t.dataset.tab;
+  $$('.withdraw-tab').forEach(x=>x.classList.toggle('is-active', x===t));
+  $$('.withdraw-panel').forEach(p=>p.hidden = !p.classList.contains(`withdraw-panel--${tab}`));
+}));
+// amounts
+$$('.withdraw-amount').forEach(b=>b.addEventListener('click', ()=>{
+  $$('.withdraw-amount').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  selectedWithdrawAmount = Number(b.dataset.amount);
+}));
+
+async function submitWithdraw(){
+  if (!selectedWithdrawAmount) return alert('Выберите сумму вывода');
+  try{
+    const res = await api('/api/withdraw', { method: 'POST', body: { type: 'stars', amount: selectedWithdrawAmount } });
+    $("#withdraw-modal").hidden = true;
+    alert('Заявка отправлена');
+    await loadProfile();
+  }catch(e){ alert(e.data?.error || e.message); }
+}
+$("#withdraw-submit").addEventListener('click', submitWithdraw);
+
+async function submitWithdrawNFT(){
+  const nft = $("#withdraw-nft-id").value.trim();
+  if (!nft) return alert('Введите NFT id или ссылку');
+  try{
+    const res = await api('/api/withdraw', { method: 'POST', body: { type: 'nft', nft_id: nft } });
+    $("#withdraw-modal").hidden = true;
+    alert('Заявка отправлена');
+  }catch(e){ alert(e.data?.error || e.message); }
+}
+$("#withdraw-submit-nft").addEventListener('click', submitWithdrawNFT);
 
 async function runCase(type){
   const anim = $("#case-anim");

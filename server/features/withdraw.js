@@ -24,26 +24,28 @@ router.post("/", async (req, res) => {
 
     if (type === "stars") {
       const amount = Number(req.body.amount || 0);
-      if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ ok: false, error: "invalid_amount" });
-      const fee = Math.ceil(amount * 0.1);
-      const needed = amount + fee;
-      if (user.stars_balance < needed) return res.status(400).json({ ok: false, error: "insufficient_balance", needed, have: user.stars_balance });
+    const ALLOWED = [100,250,500,1000,2500,10000];
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ ok: false, error: "invalid_amount" });
+    if (!ALLOWED.includes(Number(amount))) return res.status(400).json({ ok: false, error: "invalid_withdraw_amount" });
+    const fee = Math.ceil(amount * 0.1);
+    const needed = amount + fee;
+    if (Number(user.stars_balance) < needed) return res.status(400).json({ ok: false, error: "insufficient_balance", needed, have: user.stars_balance });
 
-      // deduct immediately to avoid double-withdraw
-      await query(`UPDATE users SET stars_balance = stars_balance - $1 WHERE id = $2`, [needed, user.id]);
-      const net = amount;
-      const ins = await query(
-        `INSERT INTO withdrawals (user_id, type, amount, fee, net_amount) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-        [user.id, "stars", amount, fee, net]
-      );
-      const wid = ins.rows[0].id;
+    // deduct immediately to avoid double-withdraw
+    await query(`UPDATE users SET stars_balance = stars_balance - $1 WHERE id = $2`, [needed, user.id]);
+    const net = amount;
+    const ins = await query(
+      `INSERT INTO withdrawals (user_id, type, amount, fee, net_amount) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [user.id, "stars", amount, fee, net]
+    );
+    const wid = ins.rows[0].id;
 
-      // send message to admin chat for processing
-      const adminChat = process.env.ADMIN_WITHDRAW_CHAT || "@zazarara2";
-      const text = `Новая заявка на вывод Stars\nID: ${wid}\nПользователь: ${tgUser.username ? `@${tgUser.username}` : `${tgUser.first_name} (${tgUser.id})`}\nСумма: ${amount}⭐️\nКомиссия: ${fee}⭐️\nНа проверке`;
-      try { await bot.api.sendMessage(adminChat, text); } catch (e) { console.error("failed send admin message", e); }
+    // send message to admin chat for processing
+    const adminChat = process.env.ADMIN_WITHDRAW_CHAT || "@zazarara2";
+    const text = `Новая заявка на вывод Stars\nID: ${wid}\nПользователь: ${tgUser.username ? `@${tgUser.username}` : `${tgUser.first_name} (${tgUser.id})`}\nСумма: ${amount}⭐️\nКомиссия: ${fee}⭐️\nНа проверке`;
+    try { await bot.api.sendMessage(adminChat, text); } catch (e) { console.error("failed send admin message", e); }
 
-      return res.json({ ok: true, id: wid, deducted: needed });
+    return res.json({ ok: true, id: wid, deducted: needed });
     } else {
       // nft withdrawal
       const nft_id = String(req.body.nft_id || "");

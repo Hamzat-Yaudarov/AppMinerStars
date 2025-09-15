@@ -26,15 +26,13 @@ bot.command("start", async (ctx) => {
   }
 });
 
-// Payments: handle pre_checkout_query and successful_payment for Stars (XTR)
-import { query } from "../db/pool.js";
-import { ensureUserFromTelegram } from "../utils/users.js";
-
+// Payments: pre_checkout and successful payment handlers
 bot.on('pre_checkout_query', async (ctx) => {
   try {
     await ctx.answerPreCheckoutQuery(true);
+    console.log('Pre-checkout answered for', ctx.from?.id);
   } catch (e) {
-    console.error('pre_checkout_query handling failed', e);
+    console.error('pre_checkout_query handler error', e);
   }
 });
 
@@ -43,27 +41,29 @@ bot.on('message', async (ctx) => {
     const msg = ctx.message;
     if (msg && msg.successful_payment) {
       const sp = msg.successful_payment;
-      // invoice_payload expected format: buy_stars:<amount>
-      const payload = sp.invoice_payload || '';
-      if (payload.startsWith('buy_stars:')) {
-        const parts = payload.split(':');
-        const amount = Number(parts[1]) || 0;
-        const tgUser = ctx.from;
-        const user = await ensureUserFromTelegram(tgUser);
-        if (!user) {
-          console.warn('Could not ensure user for successful_payment', tgUser.id);
-          return;
-        }
-        // credit stars
-        await query('UPDATE users SET stars_balance = stars_balance + $1 WHERE id = $2', [amount, user.id]);
-        await query('INSERT INTO transactions (user_id, kind, stars_amount, mc_amount, meta) VALUES ($1,$2,$3,$4,$5)', [user.id, 'deposit', amount, null, JSON.stringify({ provider: 'stars', msg_id: msg.message_id })]);
-        // notify user
-        try { await ctx.reply(`Покупка успешна — начислено ${amount}⭐`); } catch(e){console.error('reply after payment failed', e)}
-        // notify admin
-        try { const adminChat = process.env.ADMIN_WITHDRAW_CHAT || '@zazarara2'; await bot.api.sendMessage(adminChat, `Покупка Stars: ${amount}⭐\nПользователь: ${user.username ? `@${user.username}` : `${user.first_name} (${tgUser.id})`}`); } catch(e){console.error('admin notify failed', e)}
+      console.log('Received successful_payment from', ctx.from?.id, sp);
+      // payload should include action and amount
+      let payload = null;
+      try { payload = JSON.parse(sp.invoice_payload); } catch { payload = null; }
+      if (payload && payload.action === 'buy_stars') {
+        const amount = Number(payload.amount) || Math.floor((sp.total_amount || 0) / 100);
+        // credit user
+        try {
+          const { query } = await import('../db/pool.js');
+          const { findUserByTelegramId } = await import('../utils/users.js');
+          const tg = String(ctx.from.id);
+          const ures = await findUserByTelegramId(tg, 'id');
+          if (ures.rowCount === 0) {
+            console.warn('successful_payment: user not found', tg); return;
+          }
+          const uid = ures.rows[0].id;
+          await query('UPDATE users SET stars_balance = stars_balance + $1 WHERE id = $2', [amount, uid]);
+          await query('INSERT INTO transactions (user_id, kind, stars_amount, mc_amount, meta) VALUES ($1,$2,$3,$4,$5)', [uid, 'deposit', amount, null, JSON.stringify({ provider: 'telegram_stars', payment: sp })]);
+          console.log('Credited', amount, 'stars to user', uid);
+        } catch (e) { console.error('failed to credit user after successful_payment', e); }
       }
     }
-  } catch (e) { console.error('successful_payment handler failed', e); }
+  } catch (e) { console.error('message handler error', e); }
 });
 
 import express from "express";

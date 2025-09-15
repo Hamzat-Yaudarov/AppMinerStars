@@ -37,20 +37,6 @@ body{margin:0;background:radial-gradient(1000px 600px at 50% -20%,rgba(34,211,23
 
 @media (min-width:480px){.inventory-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
-/* Mobile optimizations */
-@media (max-width:479px){
-  .app-shell{padding:12px}
-  .brand-title{font-size:18px}
-  .primary-action{padding:16px 18px;font-size:16px}
-  .secondary-action{padding:12px 14px;font-size:15px}
-  .profile-card,.mine-card{padding:12px;border-radius:12px}
-  .modal-content{width:92vw}
-}
-
-/* Profile username */
-.profile-header{display:flex;align-items:center;justify-content:flex-start;margin-bottom:10px}
-.profile-username{font-weight:700;color:var(--accent);}
-
 /* Ensure hidden attribute actually hides modal */
 .modal[hidden]{display:none !important}
 
@@ -73,3 +59,17 @@ body{margin:0;background:radial-gradient(1000px 600px at 50% -20%,rgba(34,211,23
 
 /* Modal actions */
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+
+/* Profile action buttons */
+.profile-row--balance{display:flex;align-items:center;gap:12px}
+.profile-actions{margin-left:auto;display:flex;gap:8px}
+
+/* Withdraw modal tweaks */
+#withdraw-modal .modal-content input{padding:8px;border-radius:8px;border:1px solid #0f172a;background:#071226;color:var(--text);width:100%}
+
+.withdraw-tabs{display:flex;gap:8px;margin-top:8px}
+.withdraw-panel{margin-top:8px}
+.withdraw-amounts{display:flex;flex-wrap:wrap;gap:8px}
+.withdraw-amount{padding:8px 12px;border-radius:10px}
+.withdraw-tab.is-active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.06)}
+.withdraw-amount.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#00131a}

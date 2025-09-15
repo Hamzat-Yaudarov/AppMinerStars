@@ -47,4 +47,18 @@ router.post('/notify', async (req, res) => {
   }
 });
 
+// Fallback: create/send invoice to user's chat (if MiniApp openInvoice not supported)
+router.post('/create-invoice', async (req, res) => {
+  try {
+    const { amount } = req.body || {};
+    if (!amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ ok: false, error: 'invalid_amount' });
+    const tgUser = getAuthorizedUser(req.header('X-Telegram-InitData') || req.header('authorization')?.replace(/^twa\s+/i, ''), process.env.TG_BOT_TOKEN);
+    if (!tgUser) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    // send invoice in chat
+    const payload = JSON.stringify({ action: 'buy_stars', amount: Number(amount) });
+    try { await bot.api.sendInvoice(tgUser.id, `Пополнение ${amount} ⭐`, `Покупка ${amount} Telegram Stars`, payload, '', 'XTR', [{ label: `${amount} ⭐`, amount: Number(amount) * 100 }]); } catch (e) { console.error('sendInvoice failed', e); return res.status(500).json({ ok: false, error: 'send_failed' }); }
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false, error: 'internal' }); }
+});
+
 export default router;
