@@ -40,6 +40,8 @@ function fmtNum(n){ return new Intl.NumberFormat("ru").format(n); }
 async function loadProfile(){
   const { data } = await api("/api/profile");
   state.profile = data;
+  // username
+  $("#profile-username").textContent = data.username ? `@${data.username}` : (data.first_name || 'Игрок');
   $("#pickaxe-level").textContent = data.pickaxe_level;
   $("#stars-balance").textContent = fmtNum(data.stars_balance);
   $("#mc-balance").textContent = fmtNum(data.mines_coins);
@@ -166,7 +168,7 @@ $("#buy-mc").addEventListener('click', async ()=>{
   try{
     const res = await api('/api/shop/buy-pickaxe', { method: 'POST', body: { method: 'mc' } });
     await loadProfile(); await loadShop();
-    alert('Купл��но за MC');
+    alert('Куплено за MC');
   }catch(e){ alert(e.data?.error || e.message); }
 });
 

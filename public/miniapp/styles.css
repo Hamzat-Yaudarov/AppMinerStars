@@ -37,6 +37,20 @@ body{margin:0;background:radial-gradient(1000px 600px at 50% -20%,rgba(34,211,23
 
 @media (min-width:480px){.inventory-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
+/* Mobile optimizations */
+@media (max-width:479px){
+  .app-shell{padding:12px}
+  .brand-title{font-size:18px}
+  .primary-action{padding:16px 18px;font-size:16px}
+  .secondary-action{padding:12px 14px;font-size:15px}
+  .profile-card,.mine-card{padding:12px;border-radius:12px}
+  .modal-content{width:92vw}
+}
+
+/* Profile username */
+.profile-header{display:flex;align-items:center;justify-content:flex-start;margin-bottom:10px}
+.profile-username{font-weight:700;color:var(--accent);}
+
 /* Ensure hidden attribute actually hides modal */
 .modal[hidden]{display:none !important}
 
