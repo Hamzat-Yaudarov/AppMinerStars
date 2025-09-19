@@ -1,4 +1,5 @@
 import { Bot, InlineKeyboard, webhookCallback } from "grammy";
+import { query } from "../db/pool.js";
 
 const token = process.env.TG_BOT_TOKEN;
 if (!token) throw new Error("TG_BOT_TOKEN is required");
@@ -64,6 +65,70 @@ bot.on('message', async (ctx) => {
       }
     }
   } catch (e) { console.error('message handler error', e); }
+});
+
+// Admin callback handlers for withdrawal approve/decline
+bot.on('callback_query', async (ctx) => {
+  try {
+    const adminId = process.env.ADMIN_ID ? String(process.env.ADMIN_ID) : null;
+    const fromId = String(ctx.from?.id || '');
+    if (!adminId || fromId !== adminId) {
+      try { await ctx.answerCallbackQuery({ text: 'Нет доступа', show_alert: true }); } catch (e) {}
+      return;
+    }
+    const data = ctx.callbackQuery?.data || '';
+    const m = data.match(/^(approve|decline)_(\d+)$/);
+    if (!m) { await ctx.answerCallbackQuery({ text: 'Неверное действие' }); return; }
+    const action = m[1];
+    const id = Number(m[2]);
+    if (!Number.isFinite(id)) { await ctx.answerCallbackQuery({ text: 'Неверный id' }); return; }
+
+    const wr = await query('SELECT * FROM withdrawals WHERE id = $1', [id]);
+    if (wr.rowCount === 0) { await ctx.answerCallbackQuery({ text: 'Заявка не найдена' }); return; }
+    const w = wr.rows[0];
+    if (w.status !== 'pending') { await ctx.answerCallbackQuery({ text: 'Заявка уже обработана' }); return; }
+
+    if (action === 'approve') {
+      await query('UPDATE withdrawals SET status = $1 WHERE id = $2', ['completed', id]);
+      const userRow = await query('SELECT telegram_id, username, first_name FROM users WHERE id = $1', [w.user_id]);
+      const u = userRow.rows[0];
+      const userRef = u.username ? `@${u.username}` : `${u.first_name} (${u.telegram_id})`;
+      const text = `Заявка выполнена\nID: ${id}\nПользователь: ${userRef}\nТип: ${w.type}\nСумма: ${w.amount || ''}\nNFT: ${w.nft_id || ''}\nПримечание: `;
+      try {
+        const completedChat = process.env.ADMIN_WITHDRAW_COMPLETED_CHAT || '@zazarara3';
+        await bot.api.sendMessage(completedChat, text);
+      } catch (e) { console.error('failed notify completed', e); }
+      try { await ctx.answerCallbackQuery({ text: 'Заявка помечена как выполнена' }); } catch(e){}
+      // remove inline buttons from the original admin message
+      try {
+        const msg = ctx.callbackQuery.message;
+        if (msg) await ctx.api.editMessageReplyMarkup(msg.chat.id, msg.message_id, { reply_markup: null });
+      } catch (e) { /* ignore */ }
+    } else if (action === 'decline') {
+      // refund for stars (amount + fee)
+      if (w.type === 'stars') {
+        const refundAmount = (w.amount || 0) + (w.fee || 0);
+        await query('UPDATE users SET stars_balance = stars_balance + $1 WHERE id = $2', [refundAmount, w.user_id]);
+      }
+      await query('UPDATE withdrawals SET status = $1 WHERE id = $2', ['declined', id]);
+      const userRow = await query('SELECT telegram_id, username, first_name FROM users WHERE id = $1', [w.user_id]);
+      const u = userRow.rows[0];
+      const userRef = u.username ? `@${u.username}` : `${u.first_name} (${u.telegram_id})`;
+      const text = `Заявка отклонена\nID: ${id}\nПользователь: ${userRef}\nТип: ${w.type}\nСумма: ${w.amount || ''}\nВозврат: ${w.type === 'stars' ? 'да' : 'нет'}\nПричина: отклонено администратором`;
+      try {
+        const completedChat = process.env.ADMIN_WITHDRAW_COMPLETED_CHAT || '@zazarara3';
+        await bot.api.sendMessage(completedChat, text);
+      } catch (e) { console.error('failed notify decline', e); }
+      try { await ctx.answerCallbackQuery({ text: 'Заявка отклонена' }); } catch(e){}
+      try {
+        const msg = ctx.callbackQuery.message;
+        if (msg) await ctx.api.editMessageReplyMarkup(msg.chat.id, msg.message_id, { reply_markup: null });
+      } catch (e) { /* ignore */ }
+    }
+  } catch (e) {
+    console.error('callback handler error', e);
+    try { await ctx.answerCallbackQuery({ text: 'Ошибка', show_alert: true }); } catch (err) {}
+  }
 });
 
 import express from "express";

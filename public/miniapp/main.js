@@ -188,8 +188,8 @@ function buildInvoicePayload(amount){
 
 async function openInvoice(amount){
   const tg = window.Telegram?.WebApp;
+  // If WebApp invoice APIs aren't available, fallback to server-side invoice in chat
   if (!tg || (!tg.openInvoice && !tg.requestInvoice)){
-    // fallback: ask server to send invoice in chat
     try{
       await api('/api/payments/create-invoice', { method: 'POST', body: { amount } });
       alert('Счёт отправлен в чат бота. Подтвердите оплату там.');
@@ -206,9 +206,23 @@ async function openInvoice(amount){
     prices: [{ label: `${amount} ⭐`, amount: amount * 100 }]
   };
 
+  // remove empty provider_token — passing an empty string can cause the WebApp invoice call to fail
+  if (!invoice.provider_token) delete invoice.provider_token;
+
   try{
-    if (tg.openInvoice) tg.openInvoice(invoice);
-    else if (tg.requestInvoice) tg.requestInvoice(invoice);
+    if (tg.openInvoice) {
+      try { tg.openInvoice(invoice); }
+      catch(err){
+        console.warn('tg.openInvoice failed, falling back to server invoice', err);
+        try{ await api('/api/payments/create-invoice', { method: 'POST', body: { amount } }); alert('Счёт отправлен в чат бота. Подтвердите оплату там.'); }catch(e){ alert(e.data?.error || e.message); }
+      }
+    } else if (tg.requestInvoice) {
+      try { tg.requestInvoice(invoice); }
+      catch(err){
+        console.warn('tg.requestInvoice failed, falling back to server invoice', err);
+        try{ await api('/api/payments/create-invoice', { method: 'POST', body: { amount } }); alert('Счёт отправлен в чат бота. Подтвердите оплату там.'); }catch(e){ alert(e.data?.error || e.message); }
+      }
+    }
   }catch(e){
     console.error('invoice open failed', e); alert('Не удалось открыть платежное окно');
   }
@@ -288,7 +302,7 @@ async function runCase(type){
     anim.innerHTML = '';
     const out = document.createElement('div'); out.className='drop-row';
     if (res.type === 'stars'){
-      out.innerHTML = `<div class="drop-name">Вы выиграли</div><div class="drop-amt pos">+${fmtNum(res.prize)} ⭐</div>`;
+      out.innerHTML = `<div class="drop-name">Вы в��играли</div><div class="drop-amt pos">+${fmtNum(res.prize)} ⭐</div>`;
     } else {
       out.innerHTML = `<div class="drop-name">NFT</div><div class="drop-amt pos">${res.prize.name}</div>`;
     }

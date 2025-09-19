@@ -1,4 +1,5 @@
 import express from "express";
+import { InlineKeyboard } from "grammy";
 import { getAuthorizedUser } from "../utils/twa.js";
 import { query } from "../db/pool.js";
 import { findUserByTelegramId } from "../utils/users.js";
@@ -40,10 +41,15 @@ router.post("/", async (req, res) => {
     );
     const wid = ins.rows[0].id;
 
-    // send message to admin chat for processing
+    // send message to admin chat for processing (with action buttons)
     const adminChat = process.env.ADMIN_WITHDRAW_CHAT || "@zazarara2";
     const text = `Новая заявка на вывод Stars\nID: ${wid}\nПользователь: ${tgUser.username ? `@${tgUser.username}` : `${tgUser.first_name} (${tgUser.id})`}\nСумма: ${amount}⭐️\nКомиссия: ${fee}⭐️\nНа проверке`;
-    try { await bot.api.sendMessage(adminChat, text); } catch (e) { console.error("failed send admin message", e); }
+    try {
+      const keyboard = new InlineKeyboard()
+        .text('Выполнено', `approve_${wid}`)
+        .text('Отклонить', `decline_${wid}`);
+      await bot.api.sendMessage(adminChat, text, { reply_markup: keyboard });
+    } catch (e) { console.error("failed send admin message", e); }
 
     return res.json({ ok: true, id: wid, deducted: needed });
     } else {
@@ -57,7 +63,12 @@ router.post("/", async (req, res) => {
       const wid = ins.rows[0].id;
       const adminChat = process.env.ADMIN_NFT_CHAT || "@zazarara4";
       const text = `Новая заявка на вывод NFT\nID: ${wid}\nПользователь: ${tgUser.username ? `@${tgUser.username}` : `${tgUser.first_name} (${tgUser.id})`}\nNFT: ${nft_id}\nНа проверке`;
-      try { await bot.api.sendMessage(adminChat, text); } catch (e) { console.error("failed send admin message", e); }
+      try {
+        const keyboard = new InlineKeyboard()
+          .text('Выполнено', `approve_${wid}`)
+          .text('Отклонить', `decline_${wid}`);
+        await bot.api.sendMessage(adminChat, text, { reply_markup: keyboard });
+      } catch (e) { console.error("failed send admin message", e); }
       return res.json({ ok: true, id: wid });
     }
   } catch (e) {

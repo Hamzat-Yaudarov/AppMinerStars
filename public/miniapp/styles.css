@@ -1,4 +1,4 @@
-:root{--bg:#0b0f17;--card:#111827;--muted:#94a3b8;--text:#e5e7eb;--accent:#22d3ee;--accent-2:#60a5fa;--success:#34d399;--warning:#f59e0b;--danger:#ef4444}
+::root{--bg:#0b0f17;--card:#111827;--muted:#94a3b8;--text:#e5e7eb;--accent:#22d3ee;--accent-2:#60a5fa;--success:#34d399;--warning:#f59e0b;--danger:#ef4444}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:radial-gradient(1000px 600px at 50% -20%,rgba(34,211,238,.08),transparent),radial-gradient(1200px 800px at -10% 20%,rgba(96,165,250,.06),transparent),var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
@@ -73,3 +73,14 @@ body{margin:0;background:radial-gradient(1000px 600px at 50% -20%,rgba(34,211,23
 .withdraw-amount{padding:8px 12px;border-radius:10px}
 .withdraw-tab.is-active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.06)}
 .withdraw-amount.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#00131a}
+
+/* Added helper classes for converted inline styles */
+.buy-amounts--row{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px}
+.modal-actions--right{margin-top:12px;display:flex;justify-content:flex-end;gap:8px}
+.cases-row{display:flex;gap:8px;margin-top:12px}
+.case-title{font-weight:700}
+.case-sub{color:var(--muted);margin-top:6px}
+.case-open-btn{margin-top:8px}
+.mt-12{margin-top:12px}
+.withdraw-fee-note{margin-top:8px;color:var(--muted)}
+.withdraw-actions-row{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}

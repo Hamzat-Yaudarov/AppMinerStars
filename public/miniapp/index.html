@@ -91,7 +91,7 @@
               <div class="modal-content">
                 <button id="buy-close" class="modal-close-btn" aria-label="Закрыть">✕</button>
                 <h3>Пополнить ⭐</h3>
-                <div class="buy-amounts" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;">
+                <div class="buy-amounts buy-amounts--row">
                   <button class="secondary-action buy-amount" data-amount="50">50</button>
                   <button class="secondary-action buy-amount" data-amount="100">100</button>
                   <button class="secondary-action buy-amount" data-amount="250">250</button>
@@ -100,7 +100,7 @@
                   <button class="secondary-action buy-amount" data-amount="2500">2500</button>
                   <button class="secondary-action buy-amount" data-amount="10000">10000</button>
                 </div>
-                <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px;">
+                <div class="modal-actions modal-actions--right">
                   <button class="secondary-action" id="buy-cancel">Отмена</button>
                 </div>
               </div>
@@ -110,16 +110,16 @@
         <section class="tab-panel" data-panel="cases">
           <div class="shop-card">
             <h3>Доступные кейсы</h3>
-            <div style="display:flex;gap:8px;margin-top:12px;">
+            <div class="cases-row">
               <div class="case-card">
-                <div style="font-weight:700">Кейс — 100 ⭐</div>
-                <div style="color:var(--muted);margin-top:6px">Шанс: 25⭐ (10%), 50⭐ (25%), 75⭐ (30%), 150⭐ (30%), 300⭐ (5%)</div>
-                <button class="primary-action" id="open-cheap" style="margin-top:8px">Открыть</button>
+                <div class="case-title">Кейс — 100 ⭐</div>
+                <div class="case-sub">Шанс: 25⭐ (10%), 50⭐ (25%), 75⭐ (30%), 150⭐ (30%), 300⭐ (5%)</div>
+                <button class="primary-action case-open-btn" id="open-cheap">Открыть</button>
               </div>
               <div class="case-card">
-                <div style="font-weight:700">Кейс — 700 ⭐</div>
-                <div style="color:var(--muted);margin-top:6px">NFT: Snoop Dogg, Swag Bag, Snoop Cigar, Low Rider</div>
-                <button class="primary-action" id="open-premium" style="margin-top:8px">Открыть</button>
+                <div class="case-title">Кейс — 700 ⭐</div>
+                <div class="case-sub">NFT: Snoop Dogg, Swag Bag, Snoop Cigar, Low Rider</div>
+                <button class="primary-action case-open-btn" id="open-premium">Открыть</button>
               </div>
             </div>
             <div id="case-anim" class="case-anim"></div>
@@ -148,7 +148,7 @@
               <button class="secondary-action" data-pick="7">7</button>
               <button class="secondary-action" data-pick="8">8</button>
             </div>
-            <div id="ladder-result" style="margin-top:12px"></div>
+            <div id="ladder-result" class="mt-12"></div>
           </div>
         </section>
       </main>
@@ -197,8 +197,8 @@
             <button class="secondary-action withdraw-amount" data-amount="2500">2500</button>
             <button class="secondary-action withdraw-amount" data-amount="10000">10000</button>
           </div>
-          <div style="margin-top:8px;color:var(--muted)">Комиссия: 10% (доступно на балансе должно быть сумма + комиссия)</div>
-          <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+          <div class="withdraw-fee-note">Комиссия: 10% (доступно на балансе должно быть сумма + комиссия)</div>
+          <div class="withdraw-actions-row">
             <button class="secondary-action" id="withdraw-cancel">Отмена</button>
             <button class="primary-action" id="withdraw-submit">Отправить</button>
           </div>
@@ -208,7 +208,7 @@
           <label>NFT ID или ссылка
             <input id="withdraw-nft-id" placeholder="NFT id или ссылка" />
           </label>
-          <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+          <div class="withdraw-actions-row">
             <button class="secondary-action" id="withdraw-cancel-2">Отмена</button>
             <button class="primary-action" id="withdraw-submit-nft">Отправить NFT</button>
           </div>
