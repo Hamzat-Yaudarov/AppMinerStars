@@ -13,6 +13,7 @@
       <nav class="tab-bar">
         <button class="tab-btn" data-tab="profile">Профиль</button>
         <button class="tab-btn" data-tab="mine">Шахта</button>
+        <button class="tab-btn" data-tab="shop">Магазин</button>
       </nav>
       <main class="tab-content">
         <section id="tab-profile" class="tab-panel active">
@@ -30,12 +31,44 @@
             <div class="res-row"><span class="label">Золото:</span><span id="gold" class="value"></span></div>
             <div class="res-row"><span class="label">Алмаз:</span><span id="diamond" class="value"></span></div>
           </div>
+          <div class="economy-panel">
+            <h3 class="section-title">Обменник</h3>
+            <div class="exchange-grid">
+              <div class="exchange-row">
+                <input id="starsBuy" type="number" min="1" step="1" placeholder="Кол-во звёзд" class="input" />
+                <button id="buyStarsBtn" class="primary-btn">Купить звёзды (200 MC → 1★)</button>
+              </div>
+              <div class="exchange-row">
+                <input id="starsSell" type="number" min="1" step="1" placeholder="Кол-во звёзд" class="input" />
+                <button id="sellStarsBtn" class="secondary-btn">Продать звёзды (1★ → 200 MC)</button>
+              </div>
+              <div id="exchangeMsg" class="hint-text"></div>
+            </div>
+            <h3 class="section-title">Продажа руды</h3>
+            <div class="sell-grid">
+              <label class="sell-row">Уголь (1 MC): <input id="sellCoal" type="number" min="0" step="1" class="input sm" /></label>
+              <label class="sell-row">Медь (2 MC): <input id="sellCopper" type="number" min="0" step="1" class="input sm" /></label>
+              <label class="sell-row">Железо (4 MC): <input id="sellIron" type="number" min="0" step="1" class="input sm" /></label>
+              <label class="sell-row">Золото (5 MC): <input id="sellGold" type="number" min="0" step="1" class="input sm" /></label>
+              <label class="sell-row">Алмаз (7 MC): <input id="sellDiamond" type="number" min="0" step="1" class="input sm" /></label>
+              <button id="sellBtn" class="primary-btn">Продать</button>
+              <div id="sellMsg" class="hint-text"></div>
+            </div>
+          </div>
         </section>
         <section id="tab-mine" class="tab-panel">
           <div class="mine-panel">
-            <p class="mine-note">Копать можно только если есть кирка.</p>
+            <p class="mine-note">Копать можно только если есть кирка. Добыча ограничена MC-лимитом уровня.</p>
             <button id="mineBtn" class="primary-btn">Копать</button>
             <pre id="mineResult" class="result-box"></pre>
+          </div>
+        </section>
+        <section id="tab-shop" class="tab-panel">
+          <div class="shop-panel">
+            <div class="shop-row"><span class="label">Текущий уровень кирки:</span><span id="shopPickaxe" class="value"></span></div>
+            <div class="shop-row"><span class="label">Цена следующего уровня:</span><span id="nextCost" class="value"></span></div>
+            <button id="upgradeBtn" class="primary-btn">Купить/улучшить кир��у</button>
+            <div id="shopMsg" class="hint-text"></div>
           </div>
         </section>
       </main>
