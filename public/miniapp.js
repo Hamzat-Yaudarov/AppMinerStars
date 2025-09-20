@@ -39,13 +39,132 @@
     document.getElementById('nextCost').textContent = (cur>=10? '—' : String(cost));
   }
 
-  async function load(){
+  let cooldownTimer = null;
+  function setupCooldown(cd){
+    const btn = document.getElementById('mineBtn');
+    const text = document.getElementById('cooldownText');
+    if (cooldownTimer){ clearInterval(cooldownTimer); cooldownTimer = null; }
+    function format(ms){
+      const s = Math.ceil(ms/1000); const h = Math.floor(s/3600); const m = Math.floor((s%3600)/60); const ss = s%60;
+      return `${h}ч ${m}м ${ss}с`;
+    }
+    if (cd && cd.remainingMs>0){
+      btn.disabled = true; text.textContent = `Осталось: ${format(cd.remainingMs)}`;
+      cooldownTimer = setInterval(()=>{
+        cd.remainingMs -= 1000;
+        if (cd.remainingMs <= 0){ btn.disabled = false; text.textContent='Можно копать'; clearInterval(cooldownTimer); cooldownTimer=null; }
+        else { text.textContent = `Осталось: ${format(cd.remainingMs)}`; }
+      }, 1000);
+    } else { btn.disabled = false; text.textContent = 'Можно копать'; }
+  }
+
+  async function loadProfile(){
+    const r = await api('/api/profile');
+    if (r.ok && r.player){ fillProfile(r.player); setupCooldown(r.cooldown||{}); }
+  }
+
+  async function initial(){
     const r = await api('/api/auth');
     if (r.ok && r.player) {
       if (r.prices) PRICES = r.prices;
       fillProfile(r.player);
+      setupCooldown(r.cooldown||{});
     }
   }
+
+  const modal = document.getElementById('modal');
+  const modalBody = document.getElementById('modalBody');
+  document.getElementById('modalClose').onclick = ()=>{ modal.style.display='none'; modalBody.innerHTML=''; };
+
+  function openModal(html){ modalBody.innerHTML = html; modal.style.display='block'; }
+
+  function openSellFlow(profile){
+    const res = ['coal','copper','iron','gold','diamond'];
+    const names = { coal:'Уголь', copper:'Медь', iron:'Железо', gold:'Золото', diamond:'Алмаз' };
+    const list = res.map(k=>`<button class="secondary-btn" data-k="${k}">${names[k]} (есть: ${profile[k]})</button>`).join('');
+    openModal(`<div class="section-title">Выберите руду</div><div class="sell-grid">${list}</div>`);
+    modalBody.querySelectorAll('button[data-k]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const k = btn.getAttribute('data-k');
+        const allBtn = `<button id="sellAll" class="primary-btn">Продать всё</button>`;
+        const part = `<div class="exchange-row"><input id="sellPartQty" type="number" min="1" step="1" class="input" placeholder="Количество"/><button id="sellPart" class="secondary-btn">Продать часть</button></div><div id="sellMsg" class="hint-text"></div>`;
+        openModal(`<div class="section-title">${names[k]}</div>${allBtn}${part}`);
+        modalBody.querySelector('#sellAll').onclick = async ()=>{
+          const r = await api('/api/sellOne', { method:'POST', body: JSON.stringify({ resource:k, mode:'all' }) });
+          const msg = modalBody.querySelector('#sellMsg');
+          if (!r.ok){ msg.textContent='Ошибка продажи.'; return; }
+          fillProfile(r.player); msg.textContent = `+${r.gain} MC`; await loadProfile();
+        };
+        modalBody.querySelector('#sellPart').onclick = async ()=>{
+          const n = Math.floor(Number(modalBody.querySelector('#sellPartQty').value)||0);
+          const msg = modalBody.querySelector('#sellMsg'); msg.textContent='';
+          if (n<=0){ msg.textContent='Введите количество.'; return; }
+          const r = await api('/api/sellOne', { method:'POST', body: JSON.stringify({ resource:k, mode:'part', amount:n }) });
+          if (!r.ok){ msg.textContent = 'Недостаточно ресурса.'; return; }
+          fillProfile(r.player); msg.textContent = `Продано ${n}. +${r.gain} MC`; await loadProfile();
+        };
+      };
+    });
+  }
+
+  function openExchangeFlow(){
+    openModal(`<div class="section-title">Обменник</div>
+      <div class="sell-grid">
+        <button id="toStars" class="primary-btn">MC → Звёзды</button>
+        <button id="toMC" class="secondary-btn">Звёзды → MC</button>
+        <div id="exMsg" class="hint-text"></div>
+      </div>`);
+    modalBody.querySelector('#toStars').onclick = ()=>{
+      openModal(`<div class="section-title">MC → Звёзды</div>
+        <div class="exchange-row"><input id="starsBuy" type="number" min="1" step="1" placeholder="Сколько звёзд?" class="input" />
+        <button id="buyStarsBtn" class="primary-btn">Обменять</button></div>
+        <div class="hint-text">Курс: 200 MC → 1★</div><div id="exchangeMsg" class="hint-text"></div>`);
+      modalBody.querySelector('#buyStarsBtn').onclick = async ()=>{
+        const n = Math.floor(Number(modalBody.querySelector('#starsBuy').value)||0);
+        const msg = modalBody.querySelector('#exchangeMsg'); msg.textContent='';
+        if (n<=0){ msg.textContent='Введите количество.'; return; }
+        const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'m2s', amount:n }) });
+        if (!r.ok){ msg.textContent = r.error==='not_enough_mcoin'? 'Недостаточно MC.' : 'Ошибка.'; return; }
+        fillProfile(r.player); msg.textContent = `Куплено: ${n}★ (−${n*RATE} MC)`; await loadProfile();
+      };
+    };
+    modalBody.querySelector('#toMC').onclick = ()=>{
+      openModal(`<div class="section-title">Звёзды → MC</div>
+        <div class="exchange-row"><input id="starsSell" type="number" min="1" step="1" placeholder="Сколько звёзд?" class="input" />
+        <button id="sellStarsBtn" class="primary-btn">Обменять</button></div>
+        <div class="hint-text">Курс: 1★ → 200 MC</div><div id="exchangeMsg" class="hint-text"></div>`);
+      modalBody.querySelector('#sellStarsBtn').onclick = async ()=>{
+        const n = Math.floor(Number(modalBody.querySelector('#starsSell').value)||0);
+        const msg = modalBody.querySelector('#exchangeMsg'); msg.textContent='';
+        if (n<=0){ msg.textContent='Введите количество.'; return; }
+        const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'s2m', amount:n }) });
+        if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Ошибка.'; return; }
+        fillProfile(r.player); msg.textContent = `Продано: ${n}★ (+${n*RATE} MC)`; await loadProfile();
+      };
+    };
+  }
+
+  async function loadNfts(){
+    const r = await api('/api/nft');
+    const list = document.getElementById('nftList');
+    list.innerHTML = '';
+    if (r.ok){
+      if (!r.items.length){ list.innerHTML = '<div class="hint-text">NFT нет</div>'; return; }
+      list.innerHTML = r.items.map(i=>`<div class="nft-item">${i.nft_type}: <a href="${i.url}" target="_blank">ссылка</a></div>`).join('');
+    }
+  }
+
+  document.getElementById('nftToggle').addEventListener('click', async ()=>{
+    const list = document.getElementById('nftList');
+    const visible = list.style.display !== 'none';
+    if (visible){ list.style.display='none'; list.innerHTML=''; }
+    else { list.style.display='grid'; await loadNfts(); }
+  });
+
+  document.getElementById('exchangeOpen').addEventListener('click', ()=> openExchangeFlow());
+  document.getElementById('sellOpen').addEventListener('click', async ()=>{
+    const r = await api('/api/profile'); if (r.ok && r.player) openSellFlow(r.player);
+  });
 
   document.getElementById('mineBtn').addEventListener('click', async ()=>{
     const out = document.getElementById('mineResult');
@@ -54,51 +173,32 @@
       const r = await api('/api/mine', { method: 'POST', body: JSON.stringify({}) });
       if (!r.ok) {
         if (r.error === 'no_pickaxe') out.textContent = 'У вас нет кирки!';
-        else out.textContent = 'Не удалось копать.';
+        else if (r.error === 'cooldown') { out.textContent = 'Кулдаун. Подождите.'; setupCooldown({ remainingMs: r.remainingMs }); }
+        else out.textContent = 'Не удалос�� копать.';
         return;
       }
       const drops = r.drops || {};
       const lines = Object.entries(drops).map(([k,v])=>`${k}: +${v}`).concat(r.mc_value? [`Всего MC: +${r.mc_value}`, `Лимит: ${r.limit} MC`]:[]);
       out.textContent = lines.length? lines.join('\n') : 'Ничего не найдено.';
       if (r.player) fillProfile(r.player);
+      setupCooldown(r.cooldown||{});
     }catch(e){ out.textContent = 'Ошибка соединения.'; }
   });
 
-  document.getElementById('buyStarsBtn').addEventListener('click', async ()=>{
-    const n = Math.floor(Number(document.getElementById('starsBuy').value)||0);
-    const msg = document.getElementById('exchangeMsg');
-    msg.textContent = '';
-    if (n<=0){ msg.textContent = 'Введите количество звёзд.'; return; }
-    const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'m2s', amount:n }) });
-    if (!r.ok){ msg.textContent = r.error==='not_enough_mcoin'? 'Недостаточно MC.' : 'Ошибка обмена.'; return; }
-    fillProfile(r.player); msg.textContent = `Куплено звёзд: ${n} (−${n*RATE} MC)`;
-  });
-
-  document.getElementById('sellStarsBtn').addEventListener('click', async ()=>{
-    const n = Math.floor(Number(document.getElementById('starsSell').value)||0);
-    const msg = document.getElementById('exchangeMsg');
-    msg.textContent = '';
-    if (n<=0){ msg.textContent = 'Введите количество звёзд.'; return; }
-    const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'s2m', amount:n }) });
-    if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Ошибка обмена.'; return; }
-    fillProfile(r.player); msg.textContent = `Продано звёзд: ${n} (+${n*RATE} MC)`;
-  });
-
-  document.getElementById('sellBtn').addEventListener('click', async ()=>{
-    const payload = {
-      coal: Math.floor(Number(document.getElementById('sellCoal').value)||0),
-      copper: Math.floor(Number(document.getElementById('sellCopper').value)||0),
-      iron: Math.floor(Number(document.getElementById('sellIron').value)||0),
-      gold: Math.floor(Number(document.getElementById('sellGold').value)||0),
-      diamond: Math.floor(Number(document.getElementById('sellDiamond').value)||0)
-    };
-    const msg = document.getElementById('sellMsg');
-    msg.textContent = '';
-    if (Object.values(payload).every(v=>!v)){ msg.textContent = 'Нечего продавать.'; return; }
-    const r = await api('/api/sell', { method:'POST', body: JSON.stringify(payload) });
-    if (!r.ok){ msg.textContent = 'Ошибка продажи.'; return; }
-    fillProfile(r.player);
-    msg.textContent = `Продажа успешна: +${r.gain} MC`;
+  document.querySelectorAll('.case-card .primary-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const caseId = Number(btn.getAttribute('data-case'));
+      const msg = document.getElementById('shopMsg'); msg.textContent='';
+      const r = await api('/api/shop/openCase', { method:'POST', body: JSON.stringify({ caseId }) });
+      if (!r.ok){
+        msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : (r.error==='nft_unavailable'? 'Нет доступных NFT этого типа.' : 'Ошибка кейса.');
+        return;
+      }
+      fillProfile(r.player);
+      if (caseId===1) msg.textContent = `Выигрыш: +${r.starsWon}★`;
+      else msg.textContent = `NFT: ${r.nft.type} — ссылка выдана`;
+      await loadNfts();
+    });
   });
 
   document.getElementById('upgradeBtn').addEventListener('click', async ()=>{
@@ -113,5 +213,5 @@
     msg.textContent = `Уровень кирки: ${r.level} (−${r.cost} MC)`;
   });
 
-  load();
+  initial();
 })();

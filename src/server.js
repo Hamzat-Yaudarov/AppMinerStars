@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { initDb, upsertPlayer, getPlayer, updateResources } = require('./db');
+const { initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser } = require('./db');
 const { checkTelegramAuth } = require('./telegram-auth');
 
 const BASE_URL = process.env.BASE_URL || '';
@@ -10,6 +10,7 @@ const PRICES = { coal: 1, copper: 2, iron: 4, gold: 5, diamond: 7 };
 const LIMITS = [350,450,700,900,1150,1400,1700,2250,2400,2750];
 const COSTS = [10000,50000,100000,150000,200000,250000,300000,350000,400000,500000];
 const EXCHANGE_RATE = 200; // 200 MC = 1 Star
+const COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 function authMiddleware(req, res, next) {
   const initData = req.query.initData || req.header('X-Telegram-InitData');
@@ -79,6 +80,14 @@ function applyLimit(drops, level){
   return result;
 }
 
+function cooldownInfo(player){
+  const last = player.last_mined_at ? new Date(player.last_mined_at).getTime() : 0;
+  const nextAt = last ? last + COOLDOWN_MS : 0;
+  const now = Date.now();
+  const remainingMs = Math.max(0, nextAt - now);
+  return { nextAvailableAt: nextAt || 0, remainingMs };
+}
+
 async function createServer() {
   await initDb();
   const app = express();
@@ -96,12 +105,19 @@ async function createServer() {
   app.get('/api/auth', authMiddleware, async (req, res) => {
     const { id, username } = req.tgUser;
     const player = await upsertPlayer({ telegram_id: id, username: username || null });
-    res.json({ ok: true, player, prices: PRICES, rate: EXCHANGE_RATE });
+    const cd = cooldownInfo(player);
+    res.json({ ok: true, player, prices: PRICES, rate: EXCHANGE_RATE, cooldown: cd });
   });
 
   app.get('/api/profile', authMiddleware, async (req, res) => {
     const player = await getPlayer(req.tgUser.id);
-    res.json({ ok: true, player });
+    const cd = cooldownInfo(player || {});
+    res.json({ ok: true, player, cooldown: cd });
+  });
+
+  app.get('/api/nft', authMiddleware, async (req, res) => {
+    const items = await listOwnedNfts(req.tgUser.id);
+    res.json({ ok: true, items });
   });
 
   app.post('/api/mine', authMiddleware, async (req, res) => {
@@ -109,6 +125,11 @@ async function createServer() {
     if (!player) return res.status(404).json({ ok: false, error: 'player_not_found' });
     const level = Number(player.pickaxe_level) || 0;
     if (level < 1) return res.status(400).json({ ok: false, error: 'no_pickaxe' });
+
+    const cd = cooldownInfo(player);
+    if (cd.remainingMs > 0){
+      return res.status(429).json({ ok: false, error: 'cooldown', nextAvailableAt: cd.nextAvailableAt, remainingMs: cd.remainingMs });
+    }
 
     const probs = getProbabilities(level);
     const drops = {};
@@ -119,17 +140,10 @@ async function createServer() {
     if (roll(probs.gold)) drops.gold = getQuantity('gold', level);
     if (roll(probs.diamond)) drops.diamond = getQuantity('diamond', level);
 
-    if (Object.keys(drops).length === 0) {
-      return res.json({ ok: true, drops: {}, player });
-    }
-
     const limited = applyLimit(drops, level);
-    if (Object.keys(limited).length === 0) {
-      return res.json({ ok: true, drops: {}, player });
-    }
 
-    const updated = await updateResources(req.tgUser.id, limited);
-    res.json({ ok: true, drops: limited, player: updated, mc_value: totalMC(limited), limit: LIMITS[Math.max(1, Math.min(10, level)) - 1] });
+    const updated = await updateResources(req.tgUser.id, limited, { last_mined_at: new Date() });
+    res.json({ ok: true, drops: limited, player: updated, mc_value: totalMC(limited), limit: LIMITS[Math.max(1, Math.min(10, level)) - 1], cooldown: cooldownInfo(updated) });
   });
 
   app.post('/api/exchange', authMiddleware, async (req, res) => {
@@ -151,26 +165,21 @@ async function createServer() {
     }
   });
 
-  app.post('/api/sell', authMiddleware, async (req, res) => {
-    const q = req.body || {};
-    const toSell = {};
-    for (const k of ['coal','copper','iron','gold','diamond']) {
-      const v = Math.floor(Number(q[k]) || 0);
-      if (v < 0) return res.status(400).json({ ok: false, error: 'bad_request' });
-      if (v > 0) toSell[k] = v;
-    }
-    if (Object.keys(toSell).length === 0) return res.status(400).json({ ok: false, error: 'nothing_to_sell' });
-
+  app.post('/api/sellOne', authMiddleware, async (req, res) => {
+    const { resource, mode, amount } = req.body || {};
+    if (!['coal','copper','iron','gold','diamond'].includes(resource)) return res.status(400).json({ ok:false, error:'bad_resource' });
     const player = await getPlayer(req.tgUser.id);
-    if (!player) return res.status(404).json({ ok: false, error: 'player_not_found' });
-    for (const [k,v] of Object.entries(toSell)) {
-      if (player[k] < v) return res.status(400).json({ ok: false, error: 'insufficient_'+k });
-    }
-    const gain = Object.entries(toSell).reduce((sum,[k,v])=> sum + (PRICES[k]||0)*v, 0);
-    const neg = Object.fromEntries(Object.entries(toSell).map(([k,v])=>[k,-v]));
-    neg.mcoin = gain;
-    const updated = await updateResources(player.telegram_id, neg);
-    res.json({ ok: true, player: updated, gain });
+    if (!player) return res.status(404).json({ ok:false, error:'player_not_found' });
+    let qty = 0;
+    if (mode === 'all') qty = player[resource];
+    else if (mode === 'part') qty = Math.floor(Number(amount)||0);
+    else return res.status(400).json({ ok:false, error:'bad_request' });
+    if (qty <= 0) return res.status(400).json({ ok:false, error:'nothing_to_sell' });
+    if (qty > player[resource]) return res.status(400).json({ ok:false, error:'insufficient_'+resource });
+    const gain = qty * (PRICES[resource]||0);
+    const delta = { [resource]: -qty, mcoin: gain };
+    const updated = await updateResources(player.telegram_id, delta);
+    res.json({ ok:true, player: updated, gain, sold:{ [resource]: qty } });
   });
 
   app.post('/api/shop/upgradePickaxe', authMiddleware, async (req, res) => {
@@ -183,6 +192,38 @@ async function createServer() {
     if (player.mcoin < cost) return res.status(400).json({ ok: false, error: 'not_enough_mcoin' });
     const updated = await updateResources(player.telegram_id, { mcoin: -cost }, { pickaxe_level: next });
     res.json({ ok: true, player: updated, level: next, cost });
+  });
+
+  app.post('/api/shop/openCase', authMiddleware, async (req, res) => {
+    const { caseId } = req.body || {};
+    const player = await getPlayer(req.tgUser.id);
+    if (!player) return res.status(404).json({ ok:false, error:'player_not_found' });
+    if (caseId === 1){
+      const cost = 100; // stars
+      if (player.stars < cost) return res.status(400).json({ ok:false, error:'not_enough_stars' });
+      const roll = Math.random();
+      let reward;
+      if (roll < 0.10) reward = 25; else if (roll < 0.35) reward = 50; else if (roll < 0.65) reward = 75; else if (roll < 0.95) reward = 150; else reward = 300;
+      const updated = await updateResources(player.telegram_id, { stars: reward - cost });
+      return res.json({ ok:true, player: updated, case: 1, starsWon: reward });
+    } else if (caseId === 2){
+      const cost = 700;
+      if (player.stars < cost) return res.status(400).json({ ok:false, error:'not_enough_stars' });
+      const roll = Math.random();
+      let type;
+      if (roll < 0.66) type = 'Snoop Dogg';
+      else if (roll < 0.96) type = 'Swag Bag';
+      else if (roll < 0.97) type = 'Snoop Cigar';
+      else type = 'Low Rider';
+      const nft = await takeRandomNftOfType(type);
+      if (!nft){
+        return res.status(409).json({ ok:false, error:'nft_unavailable', type });
+      }
+      const grant = await grantNftToUser(player.telegram_id, type, nft.url);
+      const updated = await updateResources(player.telegram_id, { stars: -cost });
+      return res.json({ ok:true, player: updated, case: 2, nft: { type, url: grant.url } });
+    }
+    return res.status(400).json({ ok:false, error:'bad_request' });
   });
 
   return app;

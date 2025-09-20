@@ -24,6 +24,11 @@
             <div class="profile-row"><span class="label">Звёзды:</span><span id="stars" class="value"></span></div>
             <div class="profile-row"><span class="label">MCoin:</span><span id="mcoin" class="value"></span></div>
           </div>
+          <div class="quick-actions">
+            <button id="exchangeOpen" class="secondary-btn">Обменник</button>
+            <button id="sellOpen" class="secondary-btn">Продать</button>
+            <button id="nftToggle" class="secondary-btn">NFT</button>
+          </div>
           <div class="resources">
             <div class="res-row"><span class="label">Уголь:</span><span id="coal" class="value"></span></div>
             <div class="res-row"><span class="label">Медь:</span><span id="copper" class="value"></span></div>
@@ -31,48 +36,45 @@
             <div class="res-row"><span class="label">Золото:</span><span id="gold" class="value"></span></div>
             <div class="res-row"><span class="label">Алмаз:</span><span id="diamond" class="value"></span></div>
           </div>
-          <div class="economy-panel">
-            <h3 class="section-title">Обменник</h3>
-            <div class="exchange-grid">
-              <div class="exchange-row">
-                <input id="starsBuy" type="number" min="1" step="1" placeholder="Кол-во звёзд" class="input" />
-                <button id="buyStarsBtn" class="primary-btn">Купить звёзды (200 MC → 1★)</button>
-              </div>
-              <div class="exchange-row">
-                <input id="starsSell" type="number" min="1" step="1" placeholder="Кол-во звёзд" class="input" />
-                <button id="sellStarsBtn" class="secondary-btn">Продать звёзды (1★ → 200 MC)</button>
-              </div>
-              <div id="exchangeMsg" class="hint-text"></div>
-            </div>
-            <h3 class="section-title">Продажа руды</h3>
-            <div class="sell-grid">
-              <label class="sell-row">Уголь (1 MC): <input id="sellCoal" type="number" min="0" step="1" class="input sm" /></label>
-              <label class="sell-row">Медь (2 MC): <input id="sellCopper" type="number" min="0" step="1" class="input sm" /></label>
-              <label class="sell-row">Железо (4 MC): <input id="sellIron" type="number" min="0" step="1" class="input sm" /></label>
-              <label class="sell-row">Золото (5 MC): <input id="sellGold" type="number" min="0" step="1" class="input sm" /></label>
-              <label class="sell-row">Алмаз (7 MC): <input id="sellDiamond" type="number" min="0" step="1" class="input sm" /></label>
-              <button id="sellBtn" class="primary-btn">Продать</button>
-              <div id="sellMsg" class="hint-text"></div>
-            </div>
-          </div>
+          <div id="nftList" class="nft-list" style="display:none"></div>
         </section>
         <section id="tab-mine" class="tab-panel">
           <div class="mine-panel">
-            <p class="mine-note">Копать можно только если есть кирка. Добыча ограничена MC-лимитом уровня.</p>
+            <p class="mine-note">Копать можно раз в 3 часа. Добыча ограничена MC-лимитом уровня.</p>
             <button id="mineBtn" class="primary-btn">Копать</button>
+            <div id="cooldownText" class="hint-text"></div>
             <pre id="mineResult" class="result-box"></pre>
           </div>
         </section>
         <section id="tab-shop" class="tab-panel">
-          <div class="shop-panel">
-            <div class="shop-row"><span class="label">Текущий уровень кирки:</span><span id="shopPickaxe" class="value"></span></div>
-            <div class="shop-row"><span class="label">Цена следующего уровня:</span><span id="nextCost" class="value"></span></div>
-            <button id="upgradeBtn" class="primary-btn">Купить/улучшить кир��у</button>
-            <div id="shopMsg" class="hint-text"></div>
+          <div class="shop-cases">
+            <div class="case-card">
+              <div class="case-title">Кейс ⭐ 100</div>
+              <div class="case-desc">25★ (10%), 50★ (25%), 75★ (30%), 150★ (30%), 300★ (5%)</div>
+              <button class="primary-btn" data-case="1">Открыть</button>
+            </div>
+            <div class="case-card">
+              <div class="case-title">Кейс ⭐ 700</div>
+              <div class="case-desc">Snoop Dogg (66%), Swag Bag (30%), Snoop Cigar (5%), Low Rider (1%)</div>
+              <button class="primary-btn" data-case="2">Открыть</button>
+            </div>
           </div>
+          <div id="shopMsg" class="hint-text"></div>
+          <button id="upgradeBtn" class="primary-btn">Купить/улучшить кирку</button>
+          <div class="shop-row"><span class="label">Текущий уровень кирки:</span><span id="shopPickaxe" class="value"></span></div>
+          <div class="shop-row"><span class="label">Цена следующего уровня:</span><span id="nextCost" class="value"></span></div>
         </section>
       </main>
     </div>
+
+    <div id="modal" class="modal" style="display:none">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-actions"><button id="modalClose" class="secondary-btn">Закрыть</button></div>
+      </div>
+    </div>
+
     <script src="/public/miniapp.js"></script>
   </body>
 </html>
