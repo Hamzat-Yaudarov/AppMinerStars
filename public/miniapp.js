@@ -176,7 +176,7 @@
       if (!r.ok) {
         if (r.error === 'no_pickaxe') out.textContent = 'У вас нет кирки!';
         else if (r.error === 'cooldown') { out.textContent = 'Кулдаун. Подождите.'; setupCooldown({ remainingMs: r.remainingMs }); }
-        else out.textContent = 'Не удалось копать.';
+ 
         return;
       }
       const drops = r.drops || {};
