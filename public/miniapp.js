@@ -210,9 +210,11 @@
         <button id="topup500" class="primary-btn">500★</button>
         <div id="topupMsg" class="hint-text"></div>
       </div>`);
-    modalBody.querySelector('#topup100').onclick = ()=> doTopup(1);
+    modalBody.querySelector('#topup100').onclick = ()=> doTopup(100);
     modalBody.querySelector('#topup250').onclick = ()=> doTopup(250);
     modalBody.querySelector('#topup500').onclick = ()=> doTopup(500);
+    modalBody.querySelector('#topup500').onclick = ()=> doTopup(1000);
+    modalBody.querySelector('#topup500').onclick = ()=> doTopup(2500);
   });
 
   async function doTopup(amount){
