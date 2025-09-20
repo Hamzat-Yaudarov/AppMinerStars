@@ -74,6 +74,15 @@ async function initDb() {
       requested_at timestamptz not null default now(),
       processed_at timestamptz
     );
+
+    create table if not exists topup_requests (
+      id bigserial primary key,
+      telegram_id bigint not null,
+      amount bigint not null,
+      payload text not null,
+      status text not null default 'pending',
+      created_at timestamptz not null default now()
+    );
   `);
   // Ensure legacy databases get the last_mined_at column if missing
   try{
@@ -184,6 +193,10 @@ async function createWithdrawal({ telegram_id, type, amount, nft_type, nft_url, 
   const r = await pool.query(`insert into withdrawals (telegram_id, type, amount, nft_type, nft_url, fee) values ($1,$2,$3,$4,$5,$6) returning *`, [telegram_id, type, amount || null, nft_type || null, nft_url || null, fee || 0]);
   return r.rows[0];
 }
+async function createTopupRequest({ telegram_id, amount, payload }){
+  const r = await pool.query('insert into topup_requests (telegram_id, amount, payload) values ($1,$2,$3) returning *', [telegram_id, amount, payload]);
+  return r.rows[0];
+}
 async function getWithdrawal(id){
   const r = await pool.query('select * from withdrawals where id=$1', [id]);
   return r.rows[0] || null;
@@ -206,4 +219,4 @@ async function updateWithdrawal(id, patch){
   return r.rows[0];
 }
 
-module.exports = { pool, initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka, createWithdrawal, getWithdrawal, updateWithdrawal, countCompletedWithdrawals };
+module.exports = { pool, initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka, createWithdrawal, getWithdrawal, updateWithdrawal, countCompletedWithdrawals, createTopupRequest };

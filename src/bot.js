@@ -21,6 +21,23 @@ async function startBot(app, webhookUrl) {
       const user = ctx.from;
       await upsertPlayer({ telegram_id: user.id, username: user.username || null });
       const url = `${BASE_URL || ''}/miniapp.html`;
+      // If user opened bot with start payload like topup_250_123, launch invoice
+      const payload = (ctx.startPayload || (ctx.message && ctx.message.text && ctx.message.text.split(' ')[1])) || '';
+      if (payload && payload.startsWith('topup_')){
+        const parts = payload.split('_');
+        const amount = Number(parts[1]) || 0;
+        try{
+          await ctx.replyWithInvoice({
+            title: `${amount} игровых звёзд`,
+            description: `Пополнение баланса в MineStars на ${amount}★`,
+            payload,
+            provider_token: '',
+            currency: 'XTR',
+            prices: [{ label: `${amount}★`, amount }]
+          });
+          return;
+        }catch(e){ console.warn('replyWithInvoice failed on start payload', e); }
+      }
       const text = 'Добро пожаловать в MineStars! Нажмите кнопку ниже, чтобы открыть MiniApp.';
       const keyboard = Markup.inlineKeyboard([
         Markup.button.webApp('Открыть игру', url)
@@ -31,6 +48,15 @@ async function startBot(app, webhookUrl) {
       await ctx.reply('Произошла ошибка. Попробуйте позже.');
     }
   });
+
+  async function sendTopupLink(telegramId, payload, amount){
+    if (!botInstance) return null;
+    try{
+      const url = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(payload)}`;
+      const text = `Вы запросили пополнение ${amount}★. Нажмите кнопку, чтобы открыть бота и оплатить.`;
+      return await botInstance.telegram.sendMessage(telegramId, text, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Оплатить в боте', url }]] }) });
+    }catch(e){ console.error('sendTopupLink failed', e); return null; }
+  }
 
   // Optional command to share MiniApp link
   bot.command('app', (ctx) => {
@@ -106,7 +132,7 @@ async function startBot(app, webhookUrl) {
       if (data.startsWith('withdraw:approve:')){
         const id = Number(data.split(':')[2]);
         const w = await getWithdrawal(id);
-        if (!w) return ctx.answerCbQuery('Заявка не найдена');
+        if (!w) return ctx.answerCbQuery('Заявка не на��дена');
         await updateWithdrawal(id, { status: 'completed', admin_id: adminId, processed_at: new Date() });
         const num = await countCompletedWithdrawals();
         try{ await bot.telegram.sendMessage('@zazarara3', `Выполнена заявка #${num} ID:${w.id} от ${w.telegram_id} type:${w.type} amount:${w.amount || ''}`); }catch(e){ console.warn('notify complete failed', e); }
@@ -187,4 +213,4 @@ async function sendAdminMessage(chat, text, extra){
   try{ return await botInstance.telegram.sendMessage(chat, text, extra || {}); }catch(e){ console.error('sendAdminMessage failed', e); return null; }
 }
 
-module.exports = { startBot, sendAdminMessage, getBot: ()=>botInstance };
+module.exports = { startBot, sendAdminMessage, sendTopupLink, getBot: ()=>botInstance };

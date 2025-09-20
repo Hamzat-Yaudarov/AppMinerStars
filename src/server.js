@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka, createWithdrawal, getWithdrawal, updateWithdrawal, countCompletedWithdrawals, pool } = require('./db');
+const { initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka, createWithdrawal, getWithdrawal, updateWithdrawal, countCompletedWithdrawals, createTopupRequest, pool } = require('./db');
 const { checkTelegramAuth } = require('./telegram-auth');
 
 const BASE_URL = process.env.BASE_URL || '';
@@ -312,6 +312,20 @@ async function createServer() {
     const player = await updateResources(req.tgUser.id, { stars: payout });
     await deleteLesenka(req.tgUser.id);
     res.json({ ok:true, payout, multiplier: mult, player });
+  });
+
+  // Top-up request: create a topup request and send bot link/invoice
+  app.post('/api/topup/request', authMiddleware, async (req, res) => {
+    try{
+      const { amount } = req.body || {};
+      const n = Number(amount)||0;
+      if (n <= 0) return res.status(400).json({ ok:false, error:'bad_amount' });
+      const p = req.tgUser;
+      const payload = `topup_${n}_${Date.now()}`;
+      const tr = await createTopupRequest({ telegram_id: p.id, amount: n, payload });
+      try{ const { sendTopupLink } = require('./bot'); await sendTopupLink(p.id, payload, n); }catch(e){ console.warn('sendTopupLink failed', e); }
+      return res.json({ ok:true, request: tr });
+    }catch(e){ console.error('topup request error', e); return res.status(500).json({ ok:false, error:'server_error' }); }
   });
 
   // Withdraw stars
