@@ -93,6 +93,11 @@ async function updateResources(telegram_id, delta, extra = {}) {
     fields.push(`${k} = $${idx++}`);
     values.push(v);
   }
+  // If nothing to update, still touch updated_at to avoid SQL error and return current row
+  if (fields.length === 0) {
+    const res = await pool.query('update players set updated_at = now() where telegram_id = $1 returning *', [telegram_id]);
+    return res.rows[0] || null;
+  }
   values.push(telegram_id);
   const sql = `update players set ${fields.join(', ')} where telegram_id = $${idx} returning *`;
   const res = await pool.query(sql, values);

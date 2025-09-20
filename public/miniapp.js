@@ -138,7 +138,7 @@
       modalBody.querySelector('#sellStarsBtn').onclick = async ()=>{
         const n = Math.floor(Number(modalBody.querySelector('#starsSell').value)||0);
         const msg = modalBody.querySelector('#exchangeMsg'); msg.textContent='';
-        if (n<=0){ msg.textContent='Введите количество.'; return; }
+        if (n<=0){ msg.textContent='Введ��те количество.'; return; }
         const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'s2m', amount:n }) });
         if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Ошибка.'; return; }
         fillProfile(r.player); msg.textContent = `Продано: ${n}★ (+${n*RATE} MC)`; await loadProfile();
@@ -225,8 +225,30 @@
       document.querySelectorAll('.stake').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
       stakeValue = Number(b.getAttribute('data-v'));
+      chosenStakeEl.textContent = `${stakeValue}★`;
     });
   });
+  // Games flow panels
+  const gamesStepSelect = document.getElementById('gamesStepSelect');
+  const gamesStepStake = document.getElementById('gamesStepStake');
+  const gamesStepPlay = document.getElementById('gamesStepPlay');
+  const chosenGameEl = document.getElementById('chosenGame');
+  const chosenStakeEl = document.getElementById('chosenStake');
+  function showGamesStep(which){
+    [gamesStepSelect, gamesStepStake, gamesStepPlay].forEach(el=>el.classList.add('hidden'));
+    if (which==='select') gamesStepSelect.classList.remove('hidden');
+    else if (which==='stake') gamesStepStake.classList.remove('hidden');
+    else if (which==='play') gamesStepPlay.classList.remove('hidden');
+  }
+
+  let currentGame = null;
+  document.getElementById('chooseLesenka').addEventListener('click', ()=>{
+    currentGame = 'lesenka';
+    chosenGameEl.textContent = 'Лесенка';
+    chosenStakeEl.textContent = `${stakeValue}★`;
+    showGamesStep('stake');
+  });
+
   const grid = document.getElementById('ladderGrid');
   function renderGrid(level){
     grid.innerHTML = '';
@@ -244,16 +266,24 @@
     const r = await api('/api/games/lesenka/state');
     if (r.ok){
       const s = r.session;
-      if (s){ renderGrid(s.current_level); }
-      else { renderGrid(null); }
+      if (s){
+        showGamesStep('play');
+        renderGrid(s.current_level);
+      } else {
+        showGamesStep('select');
+        renderGrid(null);
+      }
     }
   }
 
-  document.getElementById('lesenkaStart').addEventListener('click', async ()=>{
+  document.getElementById('gameStartBtn').addEventListener('click', async ()=>{
+    const msg = document.getElementById('gamesStakeMsg'); msg.textContent='';
+    if (currentGame !== 'lesenka') { msg.textContent = 'Выберите игру.'; return; }
     const r = await api('/api/games/lesenka/start', { method:'POST', body: JSON.stringify({ stake: stakeValue }) });
-    const msg = document.getElementById('lesenkaMsg'); msg.textContent='';
     if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Не удалось начать игру.'; return; }
-    fillProfile(r.player); renderGrid(r.session.current_level);
+    fillProfile(r.player);
+    showGamesStep('play');
+    renderGrid(r.session.current_level);
   });
 
   async function pickColumn(i){
