@@ -29,16 +29,16 @@ async function startBot(app, webhookUrl) {
         try{
           await ctx.replyWithInvoice({
             title: `${amount} игровых звёзд`,
-            description: `Пополнение баланса в MineStars на ${amount}★`,
+            description: `Пополнение баланса в MineStars на ${amount}⭐`,
             payload,
             provider_token: '',
             currency: 'XTR',
-            prices: [{ label: `${amount}★`, amount }]
+            prices: [{ label: `${amount}⭐`, amount }]
           });
           return;
         }catch(e){ console.warn('replyWithInvoice failed on start payload', e); }
       }
-      const text = 'Добро пожаловать в MineStars! Нажм��те кнопку ниже, чтобы открыть MiniApp.';
+      const text = 'Добро пожаловать в MineStars! Нажмите кнопку ниже, чтобы открыть MiniApp.';
       const keyboard = Markup.inlineKeyboard([
         Markup.button.webApp('Открыть игру', url)
       ]);
@@ -63,11 +63,11 @@ async function startBot(app, webhookUrl) {
       try{
         return ctx.replyWithInvoice({
           title: `${a} игровых звёзд`,
-          description: `Пополнение баланса в MineStars на ${a}★`,
+          description: `Пополнение баланса в MineStars на ${a}⭐`,
           payload: `topup_${a}_${Date.now()}`,
           provider_token: '',
           currency: 'XTR',
-          prices: [{ label: `${a}★`, amount: a }]
+          prices: [{ label: `${a}⭐`, amount: a }]
         });
       }catch(e){ console.warn('replyWithInvoice failed', e); return ctx.reply('Оплата недоступна.'); }
     });
@@ -108,7 +108,7 @@ async function startBot(app, webhookUrl) {
       const starsToCredit = Number(amount) || 0;
       if (userId && starsToCredit>0){
         await updateResources(userId, { stars: starsToCredit });
-        await ctx.reply(`Баланс пополнен: +${starsToCredit}★ (payload=${payload || ''})`);
+        await ctx.reply(`Баланс пополнен: +${starsToCredit}`);
       } else {
         await ctx.reply('Оплата получена, но не удалось обновить баланс.');
       }
@@ -124,7 +124,7 @@ async function startBot(app, webhookUrl) {
       if (data.startsWith('withdraw:approve:')){
         const id = Number(data.split(':')[2]);
         const w = await getWithdrawal(id);
-        if (!w) return ctx.answerCbQuery('Заявка не на��дена');
+        if (!w) return ctx.answerCbQuery('Заявка не найдена');
         await updateWithdrawal(id, { status: 'completed', admin_id: adminId, processed_at: new Date() });
         const num = await countCompletedWithdrawals();
         try{ await bot.telegram.sendMessage('@zazarara3', `Выполнена заявка #${num} ID:${w.id} от ${w.telegram_id} type:${w.type} amount:${w.amount || ''}`); }catch(e){ console.warn('notify complete failed', e); }
@@ -209,7 +209,7 @@ async function sendTopupLink(telegramId, payload, amount){
   if (!botInstance) return null;
   try{
     const url = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(payload)}`;
-    const text = `Вы запросили пополнение ${amount}★. Нажмите кнопку, чтобы открыть бота и оплатить.`;
+    const text = `Вы запросили пополнение ${amount}⭐. Нажмите кнопку, чтобы открыть бота и оплатить.`;
     return await botInstance.telegram.sendMessage(telegramId, text, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Оплатить в боте', url }]] }) });
   }catch(e){ console.error('sendTopupLink failed', e); return null; }
 }

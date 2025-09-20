@@ -89,7 +89,7 @@
 
   function openSellFlow(profile){
     const res = ['coal','copper','iron','gold','diamond'];
-    const names = { coal:'Уголь', copper:'Медь', iron:'Железо', gold:'З��лото', diamond:'Алмаз' };
+    const names = { coal:'Уголь', copper:'Медь', iron:'Железо', gold:'Золото', diamond:'Алмаз' };
     const list = res.map(k=>`<button class="secondary-btn" data-k="${k}">${names[k]} (есть: ${profile[k]})</button>`).join('');
     openModal(`<div class="section-title">Выберите руду</div><div class="sell-grid">${list}</div>`);
     modalBody.querySelectorAll('button[data-k]').forEach(btn=>{
@@ -117,7 +117,7 @@
   }
 
   function openExchangeFlow(){
-    openModal(`<div class="section-title">Обменни��</div>
+    openModal(`<div class="section-title">Обменник</div>
       <div class="sell-grid">
         <button id="toStars" class="primary-btn">MC → Звёзды</button>
         <button id="toMC" class="secondary-btn">Звёзды → MC</button>
@@ -127,28 +127,28 @@
       openModal(`<div class="section-title">MC → Звёзды</div>
         <div class="exchange-row"><input id="starsBuy" type="number" min="1" step="1" placeholder="Сколько звёзд?" class="input" />
         <button id="buyStarsBtn" class="primary-btn">Обменять</button></div>
-        <div class="hint-text">Курс: 200 MC → 1★</div><div id="exchangeMsg" class="hint-text"></div>`);
+        <div class="hint-text">Курс: 200 MC → 1⭐</div><div id="exchangeMsg" class="hint-text"></div>`);
       modalBody.querySelector('#buyStarsBtn').onclick = async ()=>{
         const n = Math.floor(Number(modalBody.querySelector('#starsBuy').value)||0);
         const msg = modalBody.querySelector('#exchangeMsg'); msg.textContent='';
         if (n<=0){ msg.textContent='Введите количество.'; return; }
         const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'m2s', amount:n }) });
         if (!r.ok){ msg.textContent = r.error==='not_enough_mcoin'? 'Недостаточно MC.' : 'Ошибка.'; return; }
-        fillProfile(r.player); msg.textContent = `Куплено: ${n}★ (−${n*RATE} MC)`; await loadProfile();
+        fillProfile(r.player); msg.textContent = `Куплено: ${n}⭐ (−${n*RATE} MC)`; await loadProfile();
       };
     };
     modalBody.querySelector('#toMC').onclick = ()=>{
       openModal(`<div class="section-title">Звёзды → MC</div>
         <div class="exchange-row"><input id="starsSell" type="number" min="1" step="1" placeholder="Сколько звёзд?" class="input" />
         <button id="sellStarsBtn" class="primary-btn">Обменять</button></div>
-        <div class="hint-text">Курс: 1★ → 200 MC</div><div id="exchangeMsg" class="hint-text"></div>`);
+        <div class="hint-text">Курс: 1⭐ → 200 MC</div><div id="exchangeMsg" class="hint-text"></div>`);
       modalBody.querySelector('#sellStarsBtn').onclick = async ()=>{
         const n = Math.floor(Number(modalBody.querySelector('#starsSell').value)||0);
         const msg = modalBody.querySelector('#exchangeMsg'); msg.textContent='';
         if (n<=0){ msg.textContent='Введите количество.'; return; }
         const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'s2m', amount:n }) });
         if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Ошибка.'; return; }
-        fillProfile(r.player); msg.textContent = `Продано: ${n}★ (+${n*RATE} MC)`; await loadProfile();
+        fillProfile(r.player); msg.textContent = `Продано: ${n}⭐ (+${n*RATE} MC)`; await loadProfile();
       };
     };
   }
@@ -205,16 +205,14 @@
   document.getElementById('topupOpen').addEventListener('click', ()=>{
     openModal(`<div class="section-title">Пополнение</div>
       <div class="sell-grid">
-        <button id="topup100" class="primary-btn">100★</button>
-        <button id="topup250" class="primary-btn">250★</button>
-        <button id="topup500" class="primary-btn">500★</button>
+        <button id="topup100" class="primary-btn">100⭐</button>
+        <button id="topup250" class="primary-btn">250⭐</button>
+        <button id="topup500" class="primary-btn">500⭐</button>
         <div id="topupMsg" class="hint-text"></div>
       </div>`);
     modalBody.querySelector('#topup100').onclick = ()=> doTopup(100);
     modalBody.querySelector('#topup250').onclick = ()=> doTopup(250);
     modalBody.querySelector('#topup500').onclick = ()=> doTopup(500);
-    modalBody.querySelector('#topup500').onclick = ()=> doTopup(1000);
-    modalBody.querySelector('#topup500').onclick = ()=> doTopup(2500);
   });
 
   async function doTopup(amount){
@@ -223,7 +221,7 @@
       // First try webapp invoice if available
       if (tg && tg.openInvoice){
         const payload = `topup_${amount}_${Date.now()}`;
-        try{ tg.openInvoice({ title:`Пополнение ${amount}★`, description:`Пополнение игрового баланса на ${amount} звёзд`, payload, provider_token:'', currency:'XTR', prices:[{ label:`${amount}★`, amount }] });
+        try{ tg.openInvoice({ title:`Пополнение ${amount}⭐`, description:`Пополнение игрового баланса на ${amount} звёзд`, payload, provider_token:'', currency:'XTR', prices:[{ label:`${amount}⭐`, amount }] });
           setTimeout(async ()=>{ await loadProfile(); msg.textContent = 'Если оплата прошла — баланс обновлён.'; }, 2000);
           return;
         }catch(e){ console.warn('openInvoice failed', e); /* fall through to bot link */ }
@@ -262,12 +260,12 @@
   function openStarsWithdraw(){
     openModal(`<div class="section-title">Вывод звёзд</div>
       <div class="stake-grid">
-        <button class="secondary-btn withdraw-amt" data-v="100">100★</button>
-        <button class="secondary-btn withdraw-amt" data-v="250">250★</button>
-        <button class="secondary-btn withdraw-amt" data-v="500">500★</button>
-        <button class="secondary-btn withdraw-amt" data-v="1000">1000★</button>
-        <button class="secondary-btn withdraw-amt" data-v="2500">2500★</button>
-        <button class="secondary-btn withdraw-amt" data-v="10000">10000★</button>
+        <button class="secondary-btn withdraw-amt" data-v="100">100⭐</button>
+        <button class="secondary-btn withdraw-amt" data-v="250">250⭐</button>
+        <button class="secondary-btn withdraw-amt" data-v="500">500⭐</button>
+        <button class="secondary-btn withdraw-amt" data-v="1000">1000⭐</button>
+        <button class="secondary-btn withdraw-amt" data-v="2500">2500⭐</button>
+        <button class="secondary-btn withdraw-amt" data-v="10000">10000⭐</button>
       </div>
       <div id="withdrawStarsMsg" class="hint-text"></div>`);
     modalBody.querySelectorAll('.withdraw-amt').forEach(b=>b.onclick = async ()=>{
@@ -312,7 +310,7 @@
       }
       fillProfile(r.player);
       if (caseId===1){
-        openModal(`<div class="section-title">Вы вы��грали</div><div class="profile-row"><span class="label">Звёзды:</span><span class="value">+${r.starsWon}</span></div>`);
+        openModal(`<div class="section-title">Вы выиграли</div><div class="profile-row"><span class="label">Звёзды:</span><span class="value">+${r.starsWon}</span></div>`);
       } else {
         openModal(`<div class="section-title">Вы получили NFT</div><div class="profile-row"><span class="label">Тип:</span><span class="value">${r.nft.type}</span></div><div class="profile-row"><span class="label">Ссылка:</span><span class="value"><a href="${r.nft.url}" target="_blank">перейти</a></span></div>`);
       }
@@ -339,7 +337,7 @@
       document.querySelectorAll('.stake').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
       stakeValue = Number(b.getAttribute('data-v'));
-      chosenStakeEl.textContent = `${stakeValue}★`;
+      chosenStakeEl.textContent = `${stakeValue}⭐`;
     });
   });
   // Games flow panels
@@ -359,7 +357,7 @@
   document.getElementById('chooseLesenka').addEventListener('click', ()=>{
     currentGame = 'lesenka';
     chosenGameEl.textContent = 'Лесенка';
-    chosenStakeEl.textContent = `${stakeValue}★`;
+    chosenStakeEl.textContent = `${stakeValue}⭐`;
     showGamesStep('stake');
   });
 
@@ -413,7 +411,7 @@
     if (r.lose){ openModal('<div class="section-title">Поражение</div><div class="hint-text">Ставка сгорела.</div>'); await lesenkaState(); return; }
     if (r.finished){
       fillProfile(r.player);
-      openModal(`<div class=\"section-title\">Победа</div><div class=\"profile-row\"><span class=\"label\">Выплата:</span><span class=\"value\">+${r.payout}★</span></div><div class=\"hint-text\">Множитель: x${r.multiplier}</div>`);
+      openModal(`<div class=\"section-title\">Победа</div><div class=\"profile-row\"><span class=\"label\">Выплата:</span><span class=\"value\">+${r.payout}⭐</span></div><div class=\"hint-text\">Множитель: x${r.multiplier}</div>`);
       await lesenkaState();
       return;
     }
@@ -423,9 +421,9 @@
   document.getElementById('lesenkaCashout').addEventListener('click', async ()=>{
     const r = await api('/api/games/lesenka/cashout', { method:'POST', body: JSON.stringify({}) });
     const msg = document.getElementById('lesenkaMsg'); msg.textContent='';
-    if (!r.ok){ msg.textContent = r.error==='no_session'? 'Нет акт��вной игры.' : r.error==='nothing_to_cashout'? 'Ещё нет выигрыша.' : 'Ошибка.'; return; }
+    if (!r.ok){ msg.textContent = r.error==='no_session'? 'Нет активной игры.' : r.error==='nothing_to_cashout'? 'Ещё нет выигрыша.' : 'Ошибка.'; return; }
     fillProfile(r.player);
-    openModal(`<div class=\"section-title\">Вы забрали</div><div class=\"profile-row\"><span class=\"label\">Выплата:</span><span class=\"value\">+${r.payout}★</span></div><div class=\"hint-text\">Множитель: x${r.multiplier}</div>`);
+    openModal(`<div class=\"section-title\">Вы забрали</div><div class=\"profile-row\"><span class=\"label\">Выплата:</span><span class=\"value\">+${r.payout}⭐</span></div><div class=\"hint-text\">Множитель: x${r.multiplier}</div>`);
     await lesenkaState();
   });
 
