@@ -60,6 +60,10 @@ async function initDb() {
       broken_map jsonb not null
     );
   `);
+  // Ensure legacy databases get the last_mined_at column if missing
+  try{
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS last_mined_at timestamptz`);
+  }catch(e){ console.warn('failed to ensure last_mined_at column', e); }
 }
 
 async function upsertPlayer({ telegram_id, username }) {

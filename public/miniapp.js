@@ -321,4 +321,7 @@
     if (gamesTabBtn) gamesTabBtn.addEventListener('click', ()=> showGamesStep('select'));
   }catch(e){/* ignore */}
 
+  // Extra safety: force select step after short delay (fixes race with session restore)
+  setTimeout(()=>{ try{ showGamesStep('select'); }catch(e){} }, 150);
+
 })();
