@@ -139,29 +139,34 @@ async function createServer() {
   });
 
   app.post('/api/mine', authMiddleware, async (req, res) => {
-    const player = await getPlayer(req.tgUser.id);
-    if (!player) return res.status(404).json({ ok: false, error: 'player_not_found' });
-    const level = Number(player.pickaxe_level) || 0;
-    if (level < 1) return res.status(400).json({ ok: false, error: 'no_pickaxe' });
+    try{
+      const player = await getPlayer(req.tgUser.id);
+      if (!player) return res.status(404).json({ ok: false, error: 'player_not_found' });
+      const level = Number(player.pickaxe_level) || 0;
+      if (level < 1) return res.status(400).json({ ok: false, error: 'no_pickaxe' });
 
-    const cd = cooldownInfo(player);
-    if (cd.remainingMs > 0){
-      return res.status(429).json({ ok: false, error: 'cooldown', nextAvailableAt: cd.nextAvailableAt, remainingMs: cd.remainingMs });
+      const cd = cooldownInfo(player);
+      if (cd.remainingMs > 0){
+        return res.status(429).json({ ok: false, error: 'cooldown', nextAvailableAt: cd.nextAvailableAt, remainingMs: cd.remainingMs });
+      }
+
+      const probs = getProbabilities(level);
+      const drops = {};
+      function roll(p) { return Math.random() < p; }
+      if (roll(probs.coal)) drops.coal = getQuantity('coal', level);
+      if (roll(probs.copper)) drops.copper = getQuantity('copper', level);
+      if (roll(probs.iron)) drops.iron = getQuantity('iron', level);
+      if (roll(probs.gold)) drops.gold = getQuantity('gold', level);
+      if (roll(probs.diamond)) drops.diamond = getQuantity('diamond', level);
+
+      const limited = applyLimit(drops, level);
+
+      const updated = await updateResources(req.tgUser.id, limited, { last_mined_at: new Date() });
+      return res.json({ ok: true, drops: limited, player: updated, mc_value: totalMC(limited), limit: LIMITS[Math.max(1, Math.min(10, level)) - 1], cooldown: cooldownInfo(updated) });
+    }catch(e){
+      console.error('mine handler error', e && e.stack ? e.stack : e);
+      return res.status(500).json({ ok:false, error:'server_error', message: String(e && e.message ? e.message : e) });
     }
-
-    const probs = getProbabilities(level);
-    const drops = {};
-    function roll(p) { return Math.random() < p; }
-    if (roll(probs.coal)) drops.coal = getQuantity('coal', level);
-    if (roll(probs.copper)) drops.copper = getQuantity('copper', level);
-    if (roll(probs.iron)) drops.iron = getQuantity('iron', level);
-    if (roll(probs.gold)) drops.gold = getQuantity('gold', level);
-    if (roll(probs.diamond)) drops.diamond = getQuantity('diamond', level);
-
-    const limited = applyLimit(drops, level);
-
-    const updated = await updateResources(req.tgUser.id, limited, { last_mined_at: new Date() });
-    res.json({ ok: true, drops: limited, player: updated, mc_value: totalMC(limited), limit: LIMITS[Math.max(1, Math.min(10, level)) - 1], cooldown: cooldownInfo(updated) });
   });
 
   app.post('/api/exchange', authMiddleware, async (req, res) => {

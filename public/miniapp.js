@@ -71,7 +71,9 @@
       fillProfile(r.player);
       setupCooldown(r.cooldown||{});
     }
-    await lesenkaState();
+    // default to selection step; lesenkaState will move to play if session exists
+    try{ await lesenkaState(); } catch(e){ console.warn('lesenkaState failed', e); }
+    showGamesStep('select');
   }
 
   const modal = document.getElementById('modal');
@@ -138,7 +140,7 @@
       modalBody.querySelector('#sellStarsBtn').onclick = async ()=>{
         const n = Math.floor(Number(modalBody.querySelector('#starsSell').value)||0);
         const msg = modalBody.querySelector('#exchangeMsg'); msg.textContent='';
-        if (n<=0){ msg.textContent='Введ��те количество.'; return; }
+        if (n<=0){ msg.textContent='Введите количество.'; return; }
         const r = await api('/api/exchange', { method:'POST', body: JSON.stringify({ direction:'s2m', amount:n }) });
         if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Ошибка.'; return; }
         fillProfile(r.player); msg.textContent = `Продано: ${n}★ (+${n*RATE} MC)`; await loadProfile();
@@ -173,10 +175,12 @@
     out.textContent = '...';
     try{
       const r = await api('/api/mine', { method: 'POST', body: JSON.stringify({}) });
+      console.log('mine response', r);
       if (!r.ok) {
         if (r.error === 'no_pickaxe') out.textContent = 'У вас нет кирки!';
         else if (r.error === 'cooldown') { out.textContent = 'Кулдаун. Подождите.'; setupCooldown({ remainingMs: r.remainingMs }); }
- 
+        else if (r.error === 'server_error') { out.textContent = 'Серверная ошибка. Попробуйте позже.'; console.error('mine server error', r.message); }
+        else out.textContent = 'Не удалось копать.';
         return;
       }
       const drops = r.drops || {};
@@ -184,7 +188,7 @@
       out.textContent = lines.length? lines.join('\n') : 'Ничего не найдено.';
       if (r.player) fillProfile(r.player);
       setupCooldown(r.cooldown||{});
-    }catch(e){ out.textContent = 'Ошибка соединения.'; }
+    }catch(e){ out.textContent = 'Ошибка соединения.'; console.error(e); }
   });
 
   document.querySelectorAll('.case-card .primary-btn').forEach(btn=>{
@@ -310,4 +314,11 @@
   });
 
   initial();
+
+  // Ensure when user opens the Games tab we default to selection step
+  try{
+    const gamesTabBtn = document.querySelector('.tab-btn[data-tab="games"]');
+    if (gamesTabBtn) gamesTabBtn.addEventListener('click', ()=> showGamesStep('select'));
+  }catch(e){/* ignore */}
+
 })();
