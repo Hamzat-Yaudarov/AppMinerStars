@@ -26,13 +26,16 @@
             <div class="profile-row"><span class="label">MCoin:</span><span id="mcoin" class="value"></span></div>
           </div>
           <div class="quick-actions">
-            <button id="exchangeOpen" class="secondary-btn">Обменник</button>
-            <button id="sellOpen" class="secondary-btn">Продать</button>
-            <button id="nftToggle" class="secondary-btn">NFT</button>
-            <button id="topupOpen" class="secondary-btn">Пополнить</button>
-            <button id="withdrawOpen" class="secondary-btn">Вывод</button>
+            <div class="action-grid">
+              <button id="inventoryOpen" class="primary-btn">🧰 Инвентарь</button>
+              <button id="sellOpen" class="primary-btn">💰 Продать</button>
+              <button id="exchangeOpen" class="primary-btn">🔁 Обменник</button>
+              <button id="nftToggle" class="primary-btn">🖼️ NFT</button>
+              <button id="topupOpen" class="primary-btn">➕ Пополнить</button>
+              <button id="withdrawOpen" class="primary-btn">⬇️ Вывести</button>
+            </div>
           </div>
-          <div class="resources">
+          <div class="resources" style="display:none">
             <div class="res-row"><span class="label">Уголь:</span><span id="coal" class="value"></span></div>
             <div class="res-row"><span class="label">Медь:</span><span id="copper" class="value"></span></div>
             <div class="res-row"><span class="label">Железо:</span><span id="iron" class="value"></span></div>

@@ -24,18 +24,23 @@
     return data;
   }
 
+  let currentProfile = null;
   function fillProfile(p){
-    document.getElementById('username').textContent = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.username) || p.username || '—';
-    document.getElementById('userId').textContent = String(p.telegram_id);
-    document.getElementById('pickaxeLevel').textContent = String(p.pickaxe_level);
-    document.getElementById('stars').textContent = String(p.stars);
-    document.getElementById('mcoin').textContent = String(p.mcoin);
-    document.getElementById('coal').textContent = String(p.coal);
-    document.getElementById('copper').textContent = String(p.copper);
-    document.getElementById('iron').textContent = String(p.iron);
-    document.getElementById('gold').textContent = String(p.gold);
-    document.getElementById('diamond').textContent = String(p.diamond);
-    const cur = Number(p.pickaxe_level)||0; const next = cur+1; const cost = COSTS[next-1];
+    currentProfile = p || currentProfile;
+    document.getElementById('username').textContent = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.username) || (p && p.username) || '—';
+    document.getElementById('userId').textContent = String(p && p.telegram_id || '—');
+    document.getElementById('pickaxeLevel').textContent = String(p && p.pickaxe_level || '—');
+    document.getElementById('stars').textContent = String(p && p.stars || '—');
+    document.getElementById('mcoin').textContent = String(p && p.mcoin || '—');
+    // resources hidden from profile; kept for inventory modal
+    if (p){
+      document.getElementById('coal').textContent = String(p.coal);
+      document.getElementById('copper').textContent = String(p.copper);
+      document.getElementById('iron').textContent = String(p.iron);
+      document.getElementById('gold').textContent = String(p.gold);
+      document.getElementById('diamond').textContent = String(p.diamond);
+    }
+    const cur = Number(p && p.pickaxe_level)||0; const next = cur+1; const cost = COSTS[next-1];
     document.getElementById('shopPickaxe').textContent = String(cur);
     document.getElementById('nextCost').textContent = (cur>=10? '—' : String(cost));
   }
@@ -167,7 +172,23 @@
 
   document.getElementById('exchangeOpen').addEventListener('click', ()=> openExchangeFlow());
   document.getElementById('sellOpen').addEventListener('click', async ()=>{
-    const r = await api('/api/profile'); if (r.ok && r.player) openSellFlow(r.player);
+    const r = await api('/api/profile'); if (r.ok && r.player) openSellFlow(r.player); else if (currentProfile) openSellFlow(currentProfile);
+  });
+
+  document.getElementById('inventoryOpen').addEventListener('click', async ()=>{
+    // show inventory modal using currentProfile
+    let p = currentProfile;
+    if (!p){ const r = await api('/api/profile'); if (r.ok && r.player) p = r.player; }
+    if (!p){ openModal('<div class="section-title">Инвентарь</div><div class="hint-text">Профиль не загружен</div>'); return; }
+    openModal(`<div class="section-title">Инвентарь</div>
+      <div class="sell-grid">
+        <div>🪨 Уголь: ${p.coal}</div>
+        <div>⛏️ Медь: ${p.copper}</div>
+        <div>🔩 Железо: ${p.iron}</div>
+        <div>🥇 Золото: ${p.gold}</div>
+        <div>💎 Алмаз: ${p.diamond}</div>
+      </div>
+    `);
   });
 
   // Top-up flow

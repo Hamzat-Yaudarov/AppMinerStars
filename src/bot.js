@@ -1,11 +1,12 @@
 const { Telegraf, Markup } = require('telegraf');
-const { upsertPlayer, updateResources } = require('./db');
+const { upsertPlayer, updateResources, getWithdrawal, updateWithdrawal, countCompletedWithdrawals, pool } = require('./db');
 
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const BASE_URL = process.env.BASE_URL;
 const BOT_USERNAME = process.env.BOT_USERNAME;
 
 let botInstance = null;
+const pendingRejects = new Map(); // adminId -> withdrawalId
 
 async function startBot() {
   if (!TG_BOT_TOKEN) {
@@ -27,7 +28,7 @@ async function startBot() {
       await ctx.reply(text, keyboard);
     } catch (e) {
       console.error('start handler error', e);
-      await ctx.reply('Произошла ошиб��а. Попробуйте позже.');
+      await ctx.reply('Произошла ошибка. Попробуйте позже.');
     }
   });
 
@@ -35,6 +36,23 @@ async function startBot() {
   bot.command('app', (ctx) => {
     const url = `${BASE_URL || ''}/miniapp.html`;
     return ctx.reply(`Откройте игру: ${url}`);
+  });
+
+  // Buy commands to create Stars invoices (users can use in bot chat if WebApp payments fail)
+  const buyAmounts = [100,250,500,1000];
+  buyAmounts.forEach(a=>{
+    bot.command(`buy${a}`, (ctx)=>{
+      try{
+        return ctx.replyWithInvoice({
+          title: `${a} игровых звёзд`,
+          description: `Пополнение баланса в MineStars на ${a}★`,
+          payload: `topup_${a}_${Date.now()}`,
+          provider_token: '',
+          currency: 'XTR',
+          prices: [{ label: `${a}★`, amount: a }]
+        });
+      }catch(e){ console.warn('replyWithInvoice failed', e); return ctx.reply('Оплата недоступна.'); }
+    });
   });
 
   // Accept pre-checkout queries for Stars invoices
@@ -55,6 +73,58 @@ async function startBot() {
         await ctx.reply('Оплата получена, но не удалось обновить баланс.');
       }
     }catch(e){ console.error('successful_payment handler error', e); }
+  });
+
+  // Handle admin inline actions on withdrawals
+  bot.on('callback_query', async (ctx) => {
+    try{
+      const data = ctx.callbackQuery && ctx.callbackQuery.data;
+      const adminId = ctx.from && ctx.from.id;
+      if (!data) return ctx.answerCbQuery('No data');
+      if (data.startsWith('withdraw:approve:')){
+        const id = Number(data.split(':')[2]);
+        const w = await getWithdrawal(id);
+        if (!w) return ctx.answerCbQuery('Заявка не найдена');
+        await updateWithdrawal(id, { status: 'completed', admin_id: adminId, processed_at: new Date() });
+        const num = await countCompletedWithdrawals();
+        try{ await bot.telegram.sendMessage('@zazarara3', `Выполнена заявка #${num} ID:${w.id} от ${w.telegram_id} type:${w.type} amount:${w.amount || ''}`); }catch(e){ console.warn('notify complete failed', e); }
+        try{ await bot.telegram.sendMessage(w.telegram_id, `Ваша заявка ${w.id} помечена как выполненная.`); }catch(e){}
+        return ctx.answerCbQuery('Отмечено как выполнено');
+      }
+      if (data.startsWith('withdraw:reject:')){
+        const id = Number(data.split(':')[2]);
+        pendingRejects.set(adminId, id);
+        await ctx.answerCbQuery('Отправьте причину отклонения в ответном сообщении. Напишите REFUND чтобы вернуть средства.');
+        return;
+      }
+    }catch(e){ console.error('callback_query handler error', e); try{ ctx.answerCbQuery('Ошибка'); }catch(_){} }
+  });
+
+  // Admin reply flow for rejections
+  bot.on('message', async (ctx) => {
+    try{
+      const adminId = ctx.from && ctx.from.id;
+      if (!pendingRejects.has(adminId)) return;
+      const id = pendingRejects.get(adminId);
+      const text = ctx.message && ctx.message.text || '';
+      pendingRejects.delete(adminId);
+      const w = await getWithdrawal(id);
+      if (!w) return await ctx.reply('Заявка не найдена.');
+      const wantsRefund = /REFUND/i.test(text);
+      const reason = text.replace(/REFUND/i, '').trim();
+      const updates = { status: 'rejected', admin_comment: reason || null, admin_id: adminId, processed_at: new Date() };
+      await updateWithdrawal(id, updates);
+      if (wantsRefund){
+        if (w.type === 'stars'){
+          await updateResources(w.telegram_id, { stars: Number(w.amount||0) + Number(w.fee||0) });
+        } else if (w.type === 'nft'){
+          await pool.query('insert into nft_owned (telegram_id, nft_type, url) values ($1,$2,$3)', [w.telegram_id, w.nft_type, w.nft_url]);
+        }
+      }
+      try{ await bot.telegram.sendMessage('@zazarara3', `Отклонена заявка ID:${w.id} от ${w.telegram_id} reason:${reason || ''} refund:${wantsRefund}`); }catch(e){ console.warn('notify reject failed', e); }
+      try{ await bot.telegram.sendMessage(w.telegram_id, `Ваша заявка ${w.id} отклонена. Причина: ${reason}`); }catch(e){}
+      return;
+    }catch(e){ console.error('admin reject flow error', e); }
   });
 
   await bot.launch();
