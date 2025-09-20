@@ -164,10 +164,20 @@
   }
 
   document.getElementById('nftToggle').addEventListener('click', async ()=>{
-    const list = document.getElementById('nftList');
-    const visible = list.style.display !== 'none';
-    if (visible){ list.style.display='none'; list.innerHTML=''; }
-    else { list.style.display='grid'; await loadNfts(); }
+    const r = await api('/api/nft');
+    if (!r.ok){ openModal('<div class="section-title">NFT</div><div class="hint-text">Ошибка загрузки NFT.</div>'); return; }
+    const items = r.items || [];
+    if (!items.length){ openModal('<div class="section-title">NFT</div><div class="hint-text">NFT нет</div>'); return; }
+    const html = `<div class="section-title">NFT</div><div class="nft-list">${items.map(i=>`<div class="nft-item"><div class="nft-type">${i.nft_type}</div><div class="nft-link"><a href="${i.url}" target="_blank">Открыть</a></div><div><button data-id="${i.id}" class="secondary-btn nft-withdraw">Вывести</button></div></div>`).join('')}</div>`;
+    openModal(html);
+    modalBody.querySelectorAll('.nft-withdraw').forEach(btn=>btn.onclick = async ()=>{
+      const id = Number(btn.getAttribute('data-id'));
+      const r2 = await api('/api/withdraw/nft', { method:'POST', body: JSON.stringify({ nft_id: id }) });
+      const msg = modalBody.querySelector('#withdrawNftMsg');
+      if (!r2.ok){ openModal('<div class="section-title">Ошибка</div><div class="hint-text">Не удалось отправить заявку на вывод NFT.</div>'); return; }
+      openModal(`<div class="section-title">Заявка отправлена</div><div class="hint-text">ID: ${r2.request.id}</div>`);
+      await loadNfts();
+    });
   });
 
   document.getElementById('exchangeOpen').addEventListener('click', ()=> openExchangeFlow());
@@ -213,7 +223,7 @@
     try{
       const payload = `topup_${amount}_${Date.now()}`;
       // Try to open invoice via Telegram WebApp (may vary per API)
-      try{ tg.openInvoice({ title:`Пополнение ${amount}★`, description:`Пополнение игрового баланса на ${amount} звёзд`, payload, provider_token:'', currency:'XTR', prices:[{ label:`${amount}★`, amount }] }); }catch(e){ console.warn('openInvoice failed', e); if (msg) msg.textContent='Ошибка оплаты'; }
+      try{ tg.openInvoice({ title:`Пополнение ${amount}★`, description:`Пополнение игрового баланса на ${amount} звёзд`, payload, provider_token:'', currency:'XTR', prices:[{ label:`${amount}���`, amount }] }); }catch(e){ console.warn('openInvoice failed', e); if (msg) msg.textContent='Ошибка оплаты'; }
       // After payment the bot will credit via successful_payment handler; poll profile
       setTimeout(async ()=>{ await loadProfile(); msg.textContent = 'Если оплата прошла — баланс обновлён.'; }, 2000);
     }catch(e){ if (msg) msg.textContent='Ошибка оплаты.'; console.error(e); }

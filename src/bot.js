@@ -94,8 +94,23 @@ async function startBot() {
       if (data.startsWith('withdraw:reject:')){
         const id = Number(data.split(':')[2]);
         pendingRejects.set(adminId, id);
-        await ctx.answerCbQuery('Отправьте причину отклонения в ответном сообщении. Напишите REFUND чтобы вернуть средства.');
+        await ctx.answerCbQuery('Отправьте причину отклонения в ответном сообщении. Или нажмите «Отклонить (с возвратом)» если хотите вернуть средства.');
         return;
+      }
+      if (data.startsWith('withdraw:reject_refund:')){
+        const id = Number(data.split(':')[2]);
+        const w = await getWithdrawal(id);
+        if (!w) return ctx.answerCbQuery('Заявка не найдена');
+        await updateWithdrawal(id, { status: 'rejected', admin_id: adminId, processed_at: new Date(), admin_comment: 'Отклонено (авто, с возвратом)' });
+        // refund
+        if (w.type === 'stars'){
+          await updateResources(w.telegram_id, { stars: Number(w.amount||0) + Number(w.fee||0) });
+        } else if (w.type === 'nft'){
+          await pool.query('insert into nft_owned (telegram_id, nft_type, url) values ($1,$2,$3)', [w.telegram_id, w.nft_type, w.nft_url]);
+        }
+        try{ await bot.telegram.sendMessage('@zazarara3', `Отклонена (с возвратом) заявка ID:${w.id} от ${w.telegram_id}`); }catch(e){ console.warn('notify reject failed', e); }
+        try{ await bot.telegram.sendMessage(w.telegram_id, `Ваша заявка ${w.id} отклонена. Средства/ NFT возвращены.`); }catch(e){}
+        return ctx.answerCbQuery('Отклонено и возвращено');
       }
     }catch(e){ console.error('callback_query handler error', e); try{ ctx.answerCbQuery('Ошибка'); }catch(_){} }
   });
@@ -127,8 +142,14 @@ async function startBot() {
     }catch(e){ console.error('admin reject flow error', e); }
   });
 
-  await bot.launch();
-  console.log(`Bot @${BOT_USERNAME || ''} started`);
+  try{
+    await bot.launch();
+    console.log(`Bot @${BOT_USERNAME || ''} started`);
+  }catch(e){
+    // Handle case where another instance uses getUpdates (409). Don't crash app, just log and continue.
+    console.warn('Bot launch failed (will continue without bot polling):', e && e.response && e.response.description ? e.response.description : (e && e.message) || e);
+    return bot; // return instance so sendAdminMessage can still work if used with telegram API methods
+  }
 
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));

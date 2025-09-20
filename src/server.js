@@ -331,7 +331,7 @@ async function createServer() {
       const updated = await updateResources(req.tgUser.id, { stars: -total });
       const w = await createWithdrawal({ telegram_id: req.tgUser.id, type:'stars', amount: n, fee });
       // notify admin chat for processing
-      try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara2', `Новая заявка на вывод ★${n} от ${req.tgUser.id} (fee ${fee})\nID: ${w.id}`, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Выполнено', callback_data: `withdraw:approve:${w.id}` }, { text: 'Отклонить', callback_data: `withdraw:reject:${w.id}` }]] }) }); }catch(e){ console.warn('notify failed', e); }
+      try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara2', `Новая заявка на вывод ★${n} от ${req.tgUser.id} (fee ${fee})\nID: ${w.id}`, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Выполнено', callback_data: `withdraw:approve:${w.id}` }, { text: 'Отклонить', callback_data: `withdraw:reject:${w.id}` }, { text: 'Отклонить (с возвратом)', callback_data: `withdraw:reject_refund:${w.id}` }]] }) }); }catch(e){ console.warn('notify failed', e); }
       return res.json({ ok:true, request: w, player: updated });
     }catch(e){ console.error('withdraw stars error', e); return res.status(500).json({ ok:false, error:'server_error' }); }
   });
@@ -347,7 +347,7 @@ async function createServer() {
       // remove from owned to prevent duplicate withdraw
       await pool.query('delete from nft_owned where id=$1', [nft_id]);
       const w = await createWithdrawal({ telegram_id: req.tgUser.id, type:'nft', nft_type: nft.nft_type, nft_url: nft.url, fee:0 });
-      try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara4', `Новая заявка на вывод NFT (${nft.nft_type}) от ${req.tgUser.id}\nID: ${w.id}\nURL: ${nft.url}`, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Выполнено', callback_data: `withdraw:approve:${w.id}` }, { text: 'Отклонить', callback_data: `withdraw:reject:${w.id}` }]] }) }); }catch(e){ console.warn('notify nft failed', e); }
+      try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara4', `Новая заявка на вывод NFT (${nft.nft_type}) от ${req.tgUser.id}\nID: ${w.id}\nURL: ${nft.url}`, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Выполнено', callback_data: `withdraw:approve:${w.id}` }, { text: 'Отклонить', callback_data: `withdraw:reject:${w.id}` }, { text: 'Отклонить (с возвратом)', callback_data: `withdraw:reject_refund:${w.id}` }]] }) }); }catch(e){ console.warn('notify nft failed', e); }
       return res.json({ ok:true, request: w });
     }catch(e){ console.error('withdraw nft error', e); return res.status(500).json({ ok:false, error:'server_error' }); }
   });
