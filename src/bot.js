@@ -69,7 +69,14 @@ async function startBot(app, webhookUrl) {
         try{ await bot.telegram.setWebhook(fullUrl); console.log('Webhook set to', fullUrl); }catch(e){ console.warn('setWebhook failed', e); }
       })();
       app.post(hookPath, async (req, res) => {
-        try{ await bot.handleUpdate(req.body, res); res.sendStatus(200); }catch(e){ console.error('handleUpdate failed', e); res.sendStatus(500); }
+        try{
+          await bot.handleUpdate(req.body);
+          res.sendStatus(200);
+        }catch(e){
+          console.error('handleUpdate failed', e);
+          // If an error happens after headers sent, avoid crashing
+          try{ res.sendStatus(500); }catch(_){ /* ignore headers already sent */ }
+        }
       });
       console.log('Webhook route registered at', hookPath);
     }catch(e){ console.warn('webhook registration failed', e); }
