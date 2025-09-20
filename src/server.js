@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser } = require('./db');
+const { initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka } = require('./db');
 const { checkTelegramAuth } = require('./telegram-auth');
 
 const BASE_URL = process.env.BASE_URL || '';
@@ -11,6 +11,7 @@ const LIMITS = [350,450,700,900,1150,1400,1700,2250,2400,2750];
 const COSTS = [10000,50000,100000,150000,200000,250000,300000,350000,400000,500000];
 const EXCHANGE_RATE = 200; // 200 MC = 1 Star
 const COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 hours
+const ALLOWED_STAKES = [10,15,25,50,150,250,300,400,500];
 
 function authMiddleware(req, res, next) {
   const initData = req.query.initData || req.header('X-Telegram-InitData');
@@ -88,6 +89,23 @@ function cooldownInfo(player){
   return { nextAvailableAt: nextAt || 0, remainingMs };
 }
 
+function lesenkaMultiplier(levelsCleared){
+  if (!levelsCleared) return 0;
+  return +(1.14 + 0.14 * (levelsCleared - 1)).toFixed(2);
+}
+
+function makeBrokenMap(){
+  const map = {};
+  for (let lvl=1; lvl<=7; lvl++){
+    const broken = new Set();
+    while (broken.size < lvl){
+      broken.add(Math.floor(Math.random()*8));
+    }
+    map[lvl] = Array.from(broken);
+  }
+  return map;
+}
+
 async function createServer() {
   await initDb();
   const app = express();
@@ -153,12 +171,14 @@ async function createServer() {
     const player = await getPlayer(req.tgUser.id);
     if (!player) return res.status(404).json({ ok: false, error: 'player_not_found' });
     if (direction === 'm2s') {
+      const bal = Number(player.mcoin) || 0;
       const cost = n * EXCHANGE_RATE;
-      if (player.mcoin < cost) return res.status(400).json({ ok: false, error: 'not_enough_mcoin' });
+      if (bal < cost) return res.status(400).json({ ok: false, error: 'not_enough_mcoin' });
       const updated = await updateResources(player.telegram_id, { mcoin: -cost, stars: n });
       return res.json({ ok: true, player: updated });
     } else {
-      if (player.stars < n) return res.status(400).json({ ok: false, error: 'not_enough_stars' });
+      const have = Number(player.stars) || 0;
+      if (have < n) return res.status(400).json({ ok: false, error: 'not_enough_stars' });
       const gain = n * EXCHANGE_RATE;
       const updated = await updateResources(player.telegram_id, { mcoin: gain, stars: -n });
       return res.json({ ok: true, player: updated });
@@ -171,11 +191,12 @@ async function createServer() {
     const player = await getPlayer(req.tgUser.id);
     if (!player) return res.status(404).json({ ok:false, error:'player_not_found' });
     let qty = 0;
-    if (mode === 'all') qty = player[resource];
+    const have = Number(player[resource]) || 0;
+    if (mode === 'all') qty = have;
     else if (mode === 'part') qty = Math.floor(Number(amount)||0);
     else return res.status(400).json({ ok:false, error:'bad_request' });
     if (qty <= 0) return res.status(400).json({ ok:false, error:'nothing_to_sell' });
-    if (qty > player[resource]) return res.status(400).json({ ok:false, error:'insufficient_'+resource });
+    if (qty > have) return res.status(400).json({ ok:false, error:'insufficient_'+resource });
     const gain = qty * (PRICES[resource]||0);
     const delta = { [resource]: -qty, mcoin: gain };
     const updated = await updateResources(player.telegram_id, delta);
@@ -189,7 +210,8 @@ async function createServer() {
     if (current >= 10) return res.status(400).json({ ok: false, error: 'max_level' });
     const next = current + 1;
     const cost = COSTS[next - 1];
-    if (player.mcoin < cost) return res.status(400).json({ ok: false, error: 'not_enough_mcoin' });
+    const bal = Number(player.mcoin) || 0;
+    if (bal < cost) return res.status(400).json({ ok: false, error: 'not_enough_mcoin' });
     const updated = await updateResources(player.telegram_id, { mcoin: -cost }, { pickaxe_level: next });
     res.json({ ok: true, player: updated, level: next, cost });
   });
@@ -200,7 +222,8 @@ async function createServer() {
     if (!player) return res.status(404).json({ ok:false, error:'player_not_found' });
     if (caseId === 1){
       const cost = 100; // stars
-      if (player.stars < cost) return res.status(400).json({ ok:false, error:'not_enough_stars' });
+      const have = Number(player.stars) || 0;
+      if (have < cost) return res.status(400).json({ ok:false, error:'not_enough_stars' });
       const roll = Math.random();
       let reward;
       if (roll < 0.10) reward = 25; else if (roll < 0.35) reward = 50; else if (roll < 0.65) reward = 75; else if (roll < 0.95) reward = 150; else reward = 300;
@@ -208,7 +231,8 @@ async function createServer() {
       return res.json({ ok:true, player: updated, case: 1, starsWon: reward });
     } else if (caseId === 2){
       const cost = 700;
-      if (player.stars < cost) return res.status(400).json({ ok:false, error:'not_enough_stars' });
+      const have = Number(player.stars) || 0;
+      if (have < cost) return res.status(400).json({ ok:false, error:'not_enough_stars' });
       const roll = Math.random();
       let type;
       if (roll < 0.66) type = 'Snoop Dogg';
@@ -224,6 +248,65 @@ async function createServer() {
       return res.json({ ok:true, player: updated, case: 2, nft: { type, url: grant.url } });
     }
     return res.status(400).json({ ok:false, error:'bad_request' });
+  });
+
+  // Lesenka (Ladder) game
+  app.get('/api/games/lesenka/state', authMiddleware, async (req, res)=>{
+    const sess = await getLesenka(req.tgUser.id);
+    res.json({ ok:true, session: sess ? { stake: Number(sess.stake), current_level: Number(sess.current_level), cleared_levels: Number(sess.cleared_levels) } : null, allowed: ALLOWED_STAKES });
+  });
+
+  app.post('/api/games/lesenka/start', authMiddleware, async (req, res)=>{
+    const { stake } = req.body || {};
+    const s = Number(stake)||0;
+    if (!ALLOWED_STAKES.includes(s)) return res.status(400).json({ ok:false, error:'bad_stake' });
+    const player = await getPlayer(req.tgUser.id);
+    if (!player) return res.status(404).json({ ok:false, error:'player_not_found' });
+    const have = Number(player.stars)||0;
+    if (have < s) return res.status(400).json({ ok:false, error:'not_enough_stars' });
+    const map = makeBrokenMap();
+    await setLesenka(player.telegram_id, { stake: s, current_level: 1, cleared_levels: 0, broken_map: map });
+    const updated = await updateResources(player.telegram_id, { stars: -s });
+    res.json({ ok:true, player: updated, session: { stake: s, current_level: 1, cleared_levels: 0 } });
+  });
+
+  app.post('/api/games/lesenka/pick', authMiddleware, async (req, res)=>{
+    const { column } = req.body || {};
+    const col = Number(column);
+    if (!(col>=0 && col<=7)) return res.status(400).json({ ok:false, error:'bad_column' });
+    const sess = await getLesenka(req.tgUser.id);
+    if (!sess) return res.status(400).json({ ok:false, error:'no_session' });
+    const lvl = Number(sess.current_level)||1;
+    const broken = (sess.broken_map && sess.broken_map[lvl]) || [];
+    const isBroken = broken.includes(col);
+    if (isBroken){
+      await deleteLesenka(req.tgUser.id);
+      return res.json({ ok:true, lose:true, level:lvl });
+    }
+    let cleared = Number(sess.cleared_levels)||0;
+    cleared += 1;
+    let next = lvl + 1;
+    if (next>7){
+      const mult = lesenkaMultiplier(cleared);
+      const payout = Math.floor(Number(sess.stake) * mult);
+      const player = await updateResources(req.tgUser.id, { stars: payout });
+      await deleteLesenka(req.tgUser.id);
+      return res.json({ ok:true, win:true, finished:true, payout, multiplier: mult, player });
+    }
+    const updatedSess = await updateLesenka(req.tgUser.id, { current_level: next, cleared_levels: cleared });
+    return res.json({ ok:true, win:true, finished:false, current_level: next, cleared_levels: cleared });
+  });
+
+  app.post('/api/games/lesenka/cashout', authMiddleware, async (req, res)=>{
+    const sess = await getLesenka(req.tgUser.id);
+    if (!sess) return res.status(400).json({ ok:false, error:'no_session' });
+    const cleared = Number(sess.cleared_levels)||0;
+    if (cleared<=0) return res.status(400).json({ ok:false, error:'nothing_to_cashout' });
+    const mult = lesenkaMultiplier(cleared);
+    const payout = Math.floor(Number(sess.stake) * mult);
+    const player = await updateResources(req.tgUser.id, { stars: payout });
+    await deleteLesenka(req.tgUser.id);
+    res.json({ ok:true, payout, multiplier: mult, player });
   });
 
   return app;

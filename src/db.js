@@ -50,6 +50,15 @@ async function initDb() {
       obtained_at timestamptz not null default now()
     );
     create index if not exists idx_nft_owned_user on nft_owned(telegram_id);
+
+    create table if not exists lesenka_sessions (
+      telegram_id bigint primary key,
+      stake int not null,
+      started_at timestamptz not null default now(),
+      current_level int not null default 1,
+      cleared_levels int not null default 0,
+      broken_map jsonb not null
+    );
   `);
 }
 
@@ -113,4 +122,37 @@ async function grantNftToUser(telegram_id, nft_type, url){
   return r.rows[0];
 }
 
-module.exports = { pool, initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser };
+async function getLesenka(telegram_id){
+  const r = await pool.query('select * from lesenka_sessions where telegram_id=$1', [telegram_id]);
+  return r.rows[0] || null;
+}
+
+async function setLesenka(telegram_id, data){
+  const r = await pool.query(`
+    insert into lesenka_sessions (telegram_id, stake, current_level, cleared_levels, broken_map)
+    values ($1,$2,$3,$4,$5)
+    on conflict (telegram_id) do update
+      set stake=excluded.stake,
+          current_level=excluded.current_level,
+          cleared_levels=excluded.cleared_levels,
+          broken_map=excluded.broken_map
+    returning *
+  `, [telegram_id, data.stake, data.current_level, data.cleared_levels, data.broken_map]);
+  return r.rows[0];
+}
+
+async function updateLesenka(telegram_id, patch){
+  const current = await getLesenka(telegram_id);
+  if (!current) return null;
+  const data = { ...current, ...patch };
+  const r = await pool.query(`
+    update lesenka_sessions set stake=$1, current_level=$2, cleared_levels=$3, broken_map=$4 where telegram_id=$5 returning *
+  `, [data.stake, data.current_level, data.cleared_levels, data.broken_map, telegram_id]);
+  return r.rows[0];
+}
+
+async function deleteLesenka(telegram_id){
+  await pool.query('delete from lesenka_sessions where telegram_id=$1', [telegram_id]);
+}
+
+module.exports = { pool, initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka };

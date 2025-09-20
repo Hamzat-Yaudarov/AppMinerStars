@@ -3,7 +3,7 @@
   if (tg) { try { tg.expand(); } catch(_){} }
 
   const tabs = document.querySelectorAll('.tab-btn');
-  const panels = { profile: document.getElementById('tab-profile'), mine: document.getElementById('tab-mine'), shop: document.getElementById('tab-shop') };
+  const panels = { profile: document.getElementById('tab-profile'), mine: document.getElementById('tab-mine'), shop: document.getElementById('tab-shop'), games: document.getElementById('tab-games') };
   tabs.forEach(btn=>btn.addEventListener('click',()=>{
     tabs.forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
@@ -20,7 +20,8 @@
   async function api(path, opts={}){
     const url = `${path}${path.includes('?')?'&':'?'}initData=${encodeURIComponent(initData)}`;
     const res = await fetch(url, { ...opts, headers: { 'Content-Type':'application/json', 'X-Telegram-InitData': initData } });
-    return res.json();
+    let data; try { data = await res.json(); } catch { data = { ok:false, error:'network' }; }
+    return data;
   }
 
   function fillProfile(p){
@@ -70,6 +71,7 @@
       fillProfile(r.player);
       setupCooldown(r.cooldown||{});
     }
+    await lesenkaState();
   }
 
   const modal = document.getElementById('modal');
@@ -108,7 +110,7 @@
   }
 
   function openExchangeFlow(){
-    openModal(`<div class="section-title">Обменник</div>
+    openModal(`<div class="section-title">Обменни��</div>
       <div class="sell-grid">
         <button id="toStars" class="primary-btn">MC → Звёзды</button>
         <button id="toMC" class="secondary-btn">Звёзды → MC</button>
@@ -174,7 +176,7 @@
       if (!r.ok) {
         if (r.error === 'no_pickaxe') out.textContent = 'У вас нет кирки!';
         else if (r.error === 'cooldown') { out.textContent = 'Кулдаун. Подождите.'; setupCooldown({ remainingMs: r.remainingMs }); }
-        else out.textContent = 'Не удалос�� копать.';
+        else out.textContent = 'Не удалось копать.';
         return;
       }
       const drops = r.drops || {};
@@ -195,8 +197,11 @@
         return;
       }
       fillProfile(r.player);
-      if (caseId===1) msg.textContent = `Выигрыш: +${r.starsWon}★`;
-      else msg.textContent = `NFT: ${r.nft.type} — ссылка выдана`;
+      if (caseId===1){
+        openModal(`<div class="section-title">Вы вы��грали</div><div class="profile-row"><span class="label">Звёзды:</span><span class="value">+${r.starsWon}</span></div>`);
+      } else {
+        openModal(`<div class="section-title">Вы получили NFT</div><div class="profile-row"><span class="label">Тип:</span><span class="value">${r.nft.type}</span></div><div class="profile-row"><span class="label">Ссылка:</span><span class="value"><a href="${r.nft.url}" target="_blank">перейти</a></span></div>`);
+      }
       await loadNfts();
     });
   });
@@ -211,6 +216,67 @@
     }
     fillProfile(r.player);
     msg.textContent = `Уровень кирки: ${r.level} (−${r.cost} MC)`;
+  });
+
+  // Games: Lesenka
+  let stakeValue = 10;
+  document.querySelectorAll('.stake').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.stake').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      stakeValue = Number(b.getAttribute('data-v'));
+    });
+  });
+  const grid = document.getElementById('ladderGrid');
+  function renderGrid(level){
+    grid.innerHTML = '';
+    for(let i=0;i<8;i++){
+      const btn = document.createElement('button');
+      btn.className = 'secondary-btn';
+      btn.textContent = `${i+1}`;
+      btn.onclick = ()=> pickColumn(i);
+      grid.appendChild(btn);
+    }
+    document.getElementById('lesenkaLevel').textContent = String(level || '—');
+  }
+
+  async function lesenkaState(){
+    const r = await api('/api/games/lesenka/state');
+    if (r.ok){
+      const s = r.session;
+      if (s){ renderGrid(s.current_level); }
+      else { renderGrid(null); }
+    }
+  }
+
+  document.getElementById('lesenkaStart').addEventListener('click', async ()=>{
+    const r = await api('/api/games/lesenka/start', { method:'POST', body: JSON.stringify({ stake: stakeValue }) });
+    const msg = document.getElementById('lesenkaMsg'); msg.textContent='';
+    if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Не удалось начать игру.'; return; }
+    fillProfile(r.player); renderGrid(r.session.current_level);
+  });
+
+  async function pickColumn(i){
+    const r = await api('/api/games/lesenka/pick', { method:'POST', body: JSON.stringify({ column: i }) });
+    const msg = document.getElementById('lesenkaMsg'); msg.textContent='';
+    if (!r.ok){ msg.textContent = r.error==='no_session'? 'Сначала начните игру.' : 'Ошибка хода.'; return; }
+    if (r.lose){ openModal('<div class="section-title">Поражение</div><div class="hint-text">Ставка сгорела.</div>'); await lesenkaState(); return; }
+    if (r.finished){
+      fillProfile(r.player);
+      openModal(`<div class=\"section-title\">Победа</div><div class=\"profile-row\"><span class=\"label\">Выплата:</span><span class=\"value\">+${r.payout}★</span></div><div class=\"hint-text\">Множитель: x${r.multiplier}</div>`);
+      await lesenkaState();
+      return;
+    }
+    renderGrid(r.current_level);
+  }
+
+  document.getElementById('lesenkaCashout').addEventListener('click', async ()=>{
+    const r = await api('/api/games/lesenka/cashout', { method:'POST', body: JSON.stringify({}) });
+    const msg = document.getElementById('lesenkaMsg'); msg.textContent='';
+    if (!r.ok){ msg.textContent = r.error==='no_session'? 'Нет акт��вной игры.' : r.error==='nothing_to_cashout'? 'Ещё нет выигрыша.' : 'Ошибка.'; return; }
+    fillProfile(r.player);
+    openModal(`<div class=\"section-title\">Вы забрали</div><div class=\"profile-row\"><span class=\"label\">Выплата:</span><span class=\"value\">+${r.payout}★</span></div><div class=\"hint-text\">Множитель: x${r.multiplier}</div>`);
+    await lesenkaState();
   });
 
   initial();

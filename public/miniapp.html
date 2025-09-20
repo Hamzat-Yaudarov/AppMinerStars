@@ -14,6 +14,7 @@
         <button class="tab-btn" data-tab="profile">Профиль</button>
         <button class="tab-btn" data-tab="mine">Шахта</button>
         <button class="tab-btn" data-tab="shop">Магазин</button>
+        <button class="tab-btn" data-tab="games">Игры</button>
       </nav>
       <main class="tab-content">
         <section id="tab-profile" class="tab-panel active">
@@ -60,9 +61,34 @@
             </div>
           </div>
           <div id="shopMsg" class="hint-text"></div>
-          <button id="upgradeBtn" class="primary-btn">Купить/улучшить кирку</button>
-          <div class="shop-row"><span class="label">Текущий уровень кирки:</span><span id="shopPickaxe" class="value"></span></div>
-          <div class="shop-row"><span class="label">Цена следующего уровня:</span><span id="nextCost" class="value"></span></div>
+          <div class="shop-panel">
+            <button id="upgradeBtn" class="primary-btn">Купить/улучшить кирку</button>
+            <div class="shop-row"><span class="label">Текущий уровень кирки:</span><span id="shopPickaxe" class="value"></span></div>
+            <div class="shop-row"><span class="label">Цена следующего уровня:</span><span id="nextCost" class="value"></span></div>
+          </div>
+        </section>
+        <section id="tab-games" class="tab-panel">
+          <div class="games-panel">
+            <div class="section-title">Лесенка</div>
+            <div class="stake-grid">
+              <button class="secondary-btn stake" data-v="10">10★</button>
+              <button class="secondary-btn stake" data-v="15">15★</button>
+              <button class="secondary-btn stake" data-v="25">25★</button>
+              <button class="secondary-btn stake" data-v="50">50★</button>
+              <button class="secondary-btn stake" data-v="150">150★</button>
+              <button class="secondary-btn stake" data-v="250">250★</button>
+              <button class="secondary-btn stake" data-v="300">300★</button>
+              <button class="secondary-btn stake" data-v="400">400★</button>
+              <button class="secondary-btn stake" data-v="500">500★</button>
+            </div>
+            <div>
+              <button id="lesenkaStart" class="primary-btn">Начать</button>
+              <button id="lesenkaCashout" class="secondary-btn">Забрать</button>
+            </div>
+            <div class="shop-row"><span class="label">Текущий уровень:</span><span id="lesenkaLevel" class="value">—</span></div>
+            <div class="ladder-grid" id="ladderGrid"></div>
+            <div id="lesenkaMsg" class="hint-text"></div>
+          </div>
         </section>
       </main>
     </div>
