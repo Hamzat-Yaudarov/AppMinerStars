@@ -89,7 +89,7 @@
 
   function openSellFlow(profile){
     const res = ['coal','copper','iron','gold','diamond'];
-    const names = { coal:'Уголь', copper:'Медь', iron:'Железо', gold:'Золото', diamond:'Алмаз' };
+    const names = { coal:'Уголь', copper:'Медь', iron:'Железо', gold:'З��лото', diamond:'Алмаз' };
     const list = res.map(k=>`<button class="secondary-btn" data-k="${k}">${names[k]} (есть: ${profile[k]})</button>`).join('');
     openModal(`<div class="section-title">Выберите руду</div><div class="sell-grid">${list}</div>`);
     modalBody.querySelectorAll('button[data-k]').forEach(btn=>{
@@ -210,22 +210,27 @@
         <button id="topup500" class="primary-btn">500★</button>
         <div id="topupMsg" class="hint-text"></div>
       </div>`);
-    modalBody.querySelector('#topup100').onclick = ()=> doTopup(100);
+    modalBody.querySelector('#topup100').onclick = ()=> doTopup(1);
     modalBody.querySelector('#topup250').onclick = ()=> doTopup(250);
     modalBody.querySelector('#topup500').onclick = ()=> doTopup(500);
   });
 
   async function doTopup(amount){
     const msg = document.getElementById('topupMsg'); if (msg) msg.textContent='';
-    if (!tg || !tg.openInvoice){
-      if (msg) msg.textContent = 'Оплата недоступна в этом окружении. Воспользуйтесь ботом.'; return;
-    }
     try{
-      const payload = `topup_${amount}_${Date.now()}`;
-      // Try to open invoice via Telegram WebApp (may vary per API)
-      try{ tg.openInvoice({ title:`Пополнение ${amount}★`, description:`Пополнение игрового баланса на ${amount} звёзд`, payload, provider_token:'', currency:'XTR', prices:[{ label:`${amount}���`, amount }] }); }catch(e){ console.warn('openInvoice failed', e); if (msg) msg.textContent='Ошибка оплаты'; }
-      // After payment the bot will credit via successful_payment handler; poll profile
-      setTimeout(async ()=>{ await loadProfile(); msg.textContent = 'Если оплата прошла — баланс обновлён.'; }, 2000);
+      // First try webapp invoice if available
+      if (tg && tg.openInvoice){
+        const payload = `topup_${amount}_${Date.now()}`;
+        try{ tg.openInvoice({ title:`Пополнение ${amount}★`, description:`Пополнение игрового баланса на ${amount} звёзд`, payload, provider_token:'', currency:'XTR', prices:[{ label:`${amount}★`, amount }] });
+          setTimeout(async ()=>{ await loadProfile(); msg.textContent = 'Если оплата прошла — баланс обновлён.'; }, 2000);
+          return;
+        }catch(e){ console.warn('openInvoice failed', e); /* fall through to bot link */ }
+      }
+      // Fallback: request topup and let bot send a payment link
+      const r = await api('/api/topup/request', { method:'POST', body: JSON.stringify({ amount }) });
+      if (!r.ok){ if (msg) msg.textContent = 'Ошибка запроса пополнения.'; return; }
+      const link = r.link || (`https://t.me/${(window && window.__BOT_NAME__) || ''}?start=${r.request && r.request.payload}`);
+      openModal(`<div class="section-title">Оплатите в боте</div><div class="hint-text">Нажмите кнопку ниже, чтобы открыть бот и оплатить пополнение.</div><div style="margin-top:12px"><a class="primary-btn" href="${link}" target="_blank">Оплатить в боте</a></div>`);
     }catch(e){ if (msg) msg.textContent='Ошибка оплаты.'; console.error(e); }
   }
 

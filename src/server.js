@@ -324,7 +324,9 @@ async function createServer() {
       const payload = `topup_${n}_${Date.now()}`;
       const tr = await createTopupRequest({ telegram_id: p.id, amount: n, payload });
       try{ const { sendTopupLink } = require('./bot'); await sendTopupLink(p.id, payload, n); }catch(e){ console.warn('sendTopupLink failed', e); }
-      return res.json({ ok:true, request: tr });
+      const botName = process.env.BOT_USERNAME || '';
+      const link = `https://t.me/${botName}?start=${encodeURIComponent(payload)}`;
+      return res.json({ ok:true, request: tr, link });
     }catch(e){ console.error('topup request error', e); return res.status(500).json({ ok:false, error:'server_error' }); }
   });
 
