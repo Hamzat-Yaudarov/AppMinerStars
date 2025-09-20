@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MineStars</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/public/miniapp.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">MineStars</header>
+      <nav class="tab-bar">
+        <button class="tab-btn" data-tab="profile">Профиль</button>
+        <button class="tab-btn" data-tab="mine">Шахта</button>
+      </nav>
+      <main class="tab-content">
+        <section id="tab-profile" class="tab-panel active">
+          <div class="profile-grid">
+            <div class="profile-row"><span class="label">Ник:</span><span id="username" class="value"></span></div>
+            <div class="profile-row"><span class="label">ИД:</span><span id="userId" class="value"></span></div>
+            <div class="profile-row"><span class="label">Ур. кирки:</span><span id="pickaxeLevel" class="value"></span></div>
+            <div class="profile-row"><span class="label">Звёзды:</span><span id="stars" class="value"></span></div>
+            <div class="profile-row"><span class="label">MCoin:</span><span id="mcoin" class="value"></span></div>
+          </div>
+          <div class="resources">
+            <div class="res-row"><span class="label">Уголь:</span><span id="coal" class="value"></span></div>
+            <div class="res-row"><span class="label">Медь:</span><span id="copper" class="value"></span></div>
+            <div class="res-row"><span class="label">Железо:</span><span id="iron" class="value"></span></div>
+            <div class="res-row"><span class="label">Золото:</span><span id="gold" class="value"></span></div>
+            <div class="res-row"><span class="label">Алмаз:</span><span id="diamond" class="value"></span></div>
+          </div>
+        </section>
+        <section id="tab-mine" class="tab-panel">
+          <div class="mine-panel">
+            <p class="mine-note">Копать можно только если есть кирка.</p>
+            <button id="mineBtn" class="primary-btn">Копать</button>
+            <pre id="mineResult" class="result-box"></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/public/miniapp.js"></script>
+  </body>
+</html>
