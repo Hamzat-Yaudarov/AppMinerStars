@@ -38,7 +38,7 @@ async function startBot(app, webhookUrl) {
           return;
         }catch(e){ console.warn('replyWithInvoice failed on start payload', e); }
       }
-      const text = 'Добро пожаловать в MineStars! Нажмите кнопку ниже, чтобы открыть MiniApp.';
+      const text = 'Добро пожаловать в MineStars! Нажм��те кнопку ниже, чтобы открыть MiniApp.';
       const keyboard = Markup.inlineKeyboard([
         Markup.button.webApp('Открыть игру', url)
       ]);
@@ -49,14 +49,6 @@ async function startBot(app, webhookUrl) {
     }
   });
 
-  async function sendTopupLink(telegramId, payload, amount){
-    if (!botInstance) return null;
-    try{
-      const url = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(payload)}`;
-      const text = `Вы запросили пополнение ${amount}★. Нажмите кнопку, чтобы открыть бота и оплатить.`;
-      return await botInstance.telegram.sendMessage(telegramId, text, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Оплатить в боте', url }]] }) });
-    }catch(e){ console.error('sendTopupLink failed', e); return null; }
-  }
 
   // Optional command to share MiniApp link
   bot.command('app', (ctx) => {
@@ -211,6 +203,15 @@ async function startBot(app, webhookUrl) {
 async function sendAdminMessage(chat, text, extra){
   if (!botInstance) { console.warn('Bot not ready, cannot send admin message', chat, text); return null; }
   try{ return await botInstance.telegram.sendMessage(chat, text, extra || {}); }catch(e){ console.error('sendAdminMessage failed', e); return null; }
+}
+
+async function sendTopupLink(telegramId, payload, amount){
+  if (!botInstance) return null;
+  try{
+    const url = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(payload)}`;
+    const text = `Вы запросили пополнение ${amount}★. Нажмите кнопку, чтобы открыть бота и оплатить.`;
+    return await botInstance.telegram.sendMessage(telegramId, text, { reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Оплатить в боте', url }]] }) });
+  }catch(e){ console.error('sendTopupLink failed', e); return null; }
 }
 
 module.exports = { startBot, sendAdminMessage, sendTopupLink, getBot: ()=>botInstance };
