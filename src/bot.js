@@ -8,7 +8,7 @@ const BOT_USERNAME = process.env.BOT_USERNAME;
 let botInstance = null;
 const pendingRejects = new Map(); // adminId -> withdrawalId
 
-async function startBot() {
+async function startBot(app, webhookUrl) {
   if (!TG_BOT_TOKEN) {
     console.warn('TG_BOT_TOKEN not set, bot will not start');
     return null;
@@ -59,6 +59,21 @@ async function startBot() {
   bot.on('pre_checkout_query', (ctx) => {
     try{ ctx.answerPreCheckoutQuery(true); }catch(e){ console.warn('pre_checkout_query failed', e); }
   });
+
+  // If webhookUrl and app provided, set webhook and register route
+  if (app && webhookUrl) {
+    try{
+      const hookPath = `/telegraf/${TG_BOT_TOKEN}`;
+      const fullUrl = webhookUrl.replace(/\/$/, '') + hookPath;
+      (async ()=>{
+        try{ await bot.telegram.setWebhook(fullUrl); console.log('Webhook set to', fullUrl); }catch(e){ console.warn('setWebhook failed', e); }
+      })();
+      app.post(hookPath, async (req, res) => {
+        try{ await bot.handleUpdate(req.body, res); res.sendStatus(200); }catch(e){ console.error('handleUpdate failed', e); res.sendStatus(500); }
+      });
+      console.log('Webhook route registered at', hookPath);
+    }catch(e){ console.warn('webhook registration failed', e); }
+  }
 
   bot.on('successful_payment', async (ctx) => {
     try{
@@ -142,13 +157,17 @@ async function startBot() {
     }catch(e){ console.error('admin reject flow error', e); }
   });
 
-  try{
-    await bot.launch();
-    console.log(`Bot @${BOT_USERNAME || ''} started`);
-  }catch(e){
-    // Handle case where another instance uses getUpdates (409). Don't crash app, just log and continue.
-    console.warn('Bot launch failed (will continue without bot polling):', e && e.response && e.response.description ? e.response.description : (e && e.message) || e);
-    return bot; // return instance so sendAdminMessage can still work if used with telegram API methods
+  // If webhook isn't configured, launch polling; otherwise don't launch polling
+  if (!app || !webhookUrl) {
+    try{
+      await bot.launch();
+      console.log(`Bot @${BOT_USERNAME || ''} started (polling)`);
+    }catch(e){
+      console.warn('Bot launch failed (polling):', e && e.response && e.response.description ? e.response.description : (e && e.message) || e);
+      // continue without crashing
+    }
+  } else {
+    console.log(`Bot ready (webhook mode)`);
   }
 
   process.once('SIGINT', () => bot.stop('SIGINT'));

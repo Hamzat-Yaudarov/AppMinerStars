@@ -9,5 +9,7 @@ const port = process.env.PORT || 3000;
   app.listen(port, () => {
     console.log(`HTTP server listening on ${port}`);
   });
-  await startBot();
+  // Try to start bot in webhook mode using provided public URL
+  const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://minesstarsbot-production.up.railway.app';
+  await startBot(app, WEBHOOK_URL);
 })();
