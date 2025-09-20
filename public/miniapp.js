@@ -170,6 +170,78 @@
     const r = await api('/api/profile'); if (r.ok && r.player) openSellFlow(r.player);
   });
 
+  // Top-up flow
+  document.getElementById('topupOpen').addEventListener('click', ()=>{
+    openModal(`<div class="section-title">Пополнение</div>
+      <div class="sell-grid">
+        <button id="topup100" class="primary-btn">100★</button>
+        <button id="topup250" class="primary-btn">250★</button>
+        <button id="topup500" class="primary-btn">500★</button>
+        <div id="topupMsg" class="hint-text"></div>
+      </div>`);
+    modalBody.querySelector('#topup100').onclick = ()=> doTopup(100);
+    modalBody.querySelector('#topup250').onclick = ()=> doTopup(250);
+    modalBody.querySelector('#topup500').onclick = ()=> doTopup(500);
+  });
+
+  async function doTopup(amount){
+    const msg = document.getElementById('topupMsg'); if (msg) msg.textContent='';
+    if (!tg || !tg.openInvoice){
+      if (msg) msg.textContent = 'Оплата недоступна в этом окружении. Воспользуйтесь ботом.'; return;
+    }
+    try{
+      const payload = `topup_${amount}_${Date.now()}`;
+      // Try to open invoice via Telegram WebApp (may vary per API)
+      try{ tg.openInvoice({ title:`Пополнение ${amount}★`, description:`Пополнение игрового баланса на ${amount} звёзд`, payload, provider_token:'', currency:'XTR', prices:[{ label:`${amount}★`, amount }] }); }catch(e){ console.warn('openInvoice failed', e); if (msg) msg.textContent='Ошибка оплаты'; }
+      // After payment the bot will credit via successful_payment handler; poll profile
+      setTimeout(async ()=>{ await loadProfile(); msg.textContent = 'Если оплата прошла — баланс обновлён.'; }, 2000);
+    }catch(e){ if (msg) msg.textContent='Ошибка оплаты.'; console.error(e); }
+  }
+
+  // Withdraw flow
+  document.getElementById('withdrawOpen').addEventListener('click', async ()=>{
+    openModal(`<div class="section-title">Вывод</div>
+      <div class="sell-grid">
+        <button id="withdrawStarsBtn" class="primary-btn">Вывести звёзды</button>
+        <button id="withdrawNftBtn" class="secondary-btn">Вывести NFT</button>
+        <div id="withdrawMsg" class="hint-text"></div>
+      </div>`);
+    modalBody.querySelector('#withdrawStarsBtn').onclick = ()=> openStarsWithdraw();
+    modalBody.querySelector('#withdrawNftBtn').onclick = async ()=>{
+      const r = await api('/api/nft'); if (!r.ok){ modalBody.querySelector('#withdrawMsg').textContent='Ошибка'; return; }
+      const list = r.items || [];
+      if (!list.length){ modalBody.innerHTML = `<div class="section-title">NFT</div><div class="hint-text">NFT нет</div>`; return; }
+      modalBody.innerHTML = `<div class="section-title">Выберите NFT для вывода</div><div class="nft-list">${list.map(i=>`<div class="nft-row"><span>${i.nft_type}</span> <button data-id="${i.id}" class="secondary-btn nft-withdraw">Вывести</button></div>`).join('')}</div><div id="withdrawNftMsg" class="hint-text"></div>`;
+      modalBody.querySelectorAll('.nft-withdraw').forEach(btn=>btn.onclick = async ()=>{
+        const id = Number(btn.getAttribute('data-id'));
+        const r2 = await api('/api/withdraw/nft', { method:'POST', body: JSON.stringify({ nft_id: id }) });
+        const msg = modalBody.querySelector('#withdrawNftMsg'); if (!r2.ok){ msg.textContent='Ошибка заявки.'; return; }
+        msg.textContent = `Заявка отправлена (ID: ${r2.request.id}). Обработают в чате.`; await loadNfts();
+      });
+    };
+  });
+
+  function openStarsWithdraw(){
+    openModal(`<div class="section-title">Вывод звёзд</div>
+      <div class="stake-grid">
+        <button class="secondary-btn withdraw-amt" data-v="100">100★</button>
+        <button class="secondary-btn withdraw-amt" data-v="250">250★</button>
+        <button class="secondary-btn withdraw-amt" data-v="500">500★</button>
+        <button class="secondary-btn withdraw-amt" data-v="1000">1000★</button>
+        <button class="secondary-btn withdraw-amt" data-v="2500">2500★</button>
+        <button class="secondary-btn withdraw-amt" data-v="10000">10000★</button>
+      </div>
+      <div id="withdrawStarsMsg" class="hint-text"></div>`);
+    modalBody.querySelectorAll('.withdraw-amt').forEach(b=>b.onclick = async ()=>{
+      const n = Number(b.getAttribute('data-v'));
+      const msg = modalBody.querySelector('#withdrawStarsMsg'); msg.textContent='';
+      const r = await api('/api/withdraw/stars', { method:'POST', body: JSON.stringify({ amount: n }) });
+      if (!r.ok){ msg.textContent = r.error==='not_enough_stars'? 'Недостаточно звёзд.' : 'Ошибка заявки.'; return; }
+      msg.textContent = `Заявка отправлена ID:${r.request.id}`;
+      await loadProfile();
+    });
+  }
+
   document.getElementById('mineBtn').addEventListener('click', async ()=>{
     const out = document.getElementById('mineResult');
     out.textContent = '...';
@@ -289,6 +361,12 @@
     showGamesStep('play');
     renderGrid(r.session.current_level);
   });
+
+  // Back to game select from stake
+  const gameBackBtn = document.getElementById('gameBackBtn');
+  if (gameBackBtn) gameBackBtn.addEventListener('click', ()=>{ currentGame = null; showGamesStep('select'); });
+  const gamesReturnToSelect = document.getElementById('gamesReturnToSelect');
+  if (gamesReturnToSelect) gamesReturnToSelect.addEventListener('click', ()=>{ currentGame = null; showGamesStep('select'); });
 
   async function pickColumn(i){
     const r = await api('/api/games/lesenka/pick', { method:'POST', body: JSON.stringify({ column: i }) });

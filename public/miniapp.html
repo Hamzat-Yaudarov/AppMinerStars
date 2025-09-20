@@ -29,6 +29,8 @@
             <button id="exchangeOpen" class="secondary-btn">Обменник</button>
             <button id="sellOpen" class="secondary-btn">Продать</button>
             <button id="nftToggle" class="secondary-btn">NFT</button>
+            <button id="topupOpen" class="secondary-btn">Пополнить</button>
+            <button id="withdrawOpen" class="secondary-btn">Вывод</button>
           </div>
           <div class="resources">
             <div class="res-row"><span class="label">Уголь:</span><span id="coal" class="value"></span></div>
@@ -95,7 +97,10 @@
               </div>
               <div class="shop-row"><span class="label">Игра:</span><span id="chosenGame" class="value">—</span></div>
               <div class="shop-row"><span class="label">Ставка:</span><span id="chosenStake" class="value">—</span></div>
-              <button id="gameStartBtn" class="primary-btn">Начать</button>
+              <div style="display:flex;gap:10px;align-items:center">
+                <button id="gameStartBtn" class="primary-btn">Начать</button>
+                <button id="gameBackBtn" class="secondary-btn">Вернуться</button>
+              </div>
               <div id="gamesStakeMsg" class="hint-text"></div>
             </div>
 
@@ -103,6 +108,7 @@
               <div class="section-title">Лесенка</div>
               <div>
                 <button id="lesenkaCashout" class="secondary-btn">Забрать</button>
+                <button id="gamesReturnToSelect" class="secondary-btn">Игры</button>
               </div>
               <div class="shop-row"><span class="label">Текущий уровень:</span><span id="lesenkaLevel" class="value">—</span></div>
               <div class="ladder-grid" id="ladderGrid"></div>

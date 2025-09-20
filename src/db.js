@@ -59,6 +59,21 @@ async function initDb() {
       cleared_levels int not null default 0,
       broken_map jsonb not null
     );
+
+    create table if not exists withdrawals (
+      id bigserial primary key,
+      telegram_id bigint not null,
+      type text not null,
+      amount bigint,
+      nft_type text,
+      nft_url text,
+      fee bigint default 0,
+      status text not null default 'pending',
+      admin_comment text,
+      admin_id bigint,
+      requested_at timestamptz not null default now(),
+      processed_at timestamptz
+    );
   `);
   // Ensure legacy databases get the last_mined_at column if missing
   try{
@@ -164,4 +179,31 @@ async function deleteLesenka(telegram_id){
   await pool.query('delete from lesenka_sessions where telegram_id=$1', [telegram_id]);
 }
 
-module.exports = { pool, initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka };
+// Withdrawals table and helpers
+async function createWithdrawal({ telegram_id, type, amount, nft_type, nft_url, fee }){
+  const r = await pool.query(`insert into withdrawals (telegram_id, type, amount, nft_type, nft_url, fee) values ($1,$2,$3,$4,$5,$6) returning *`, [telegram_id, type, amount || null, nft_type || null, nft_url || null, fee || 0]);
+  return r.rows[0];
+}
+async function getWithdrawal(id){
+  const r = await pool.query('select * from withdrawals where id=$1', [id]);
+  return r.rows[0] || null;
+}
+async function countCompletedWithdrawals(){
+  const r = await pool.query("select count(*)::int as cnt from withdrawals where status='completed'");
+  return r.rows[0].cnt || 0;
+}
+async function updateWithdrawal(id, patch){
+  const fields = [];
+  const values = [];
+  let idx = 1;
+  for (const [k,v] of Object.entries(patch)){
+    fields.push(`${k} = $${idx++}`); values.push(v);
+  }
+  if (fields.length === 0) return getWithdrawal(id);
+  values.push(id);
+  const sql = `update withdrawals set ${fields.join(', ')} where id = $${idx} returning *`;
+  const r = await pool.query(sql, values);
+  return r.rows[0];
+}
+
+module.exports = { pool, initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka, createWithdrawal, getWithdrawal, updateWithdrawal, countCompletedWithdrawals };

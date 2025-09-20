@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka } = require('./db');
+const { initDb, upsertPlayer, getPlayer, updateResources, listOwnedNfts, takeRandomNftOfType, grantNftToUser, getLesenka, setLesenka, updateLesenka, deleteLesenka, createWithdrawal, getWithdrawal, updateWithdrawal, countCompletedWithdrawals, pool } = require('./db');
 const { checkTelegramAuth } = require('./telegram-auth');
 
 const BASE_URL = process.env.BASE_URL || '';
@@ -307,11 +307,79 @@ async function createServer() {
     if (!sess) return res.status(400).json({ ok:false, error:'no_session' });
     const cleared = Number(sess.cleared_levels)||0;
     if (cleared<=0) return res.status(400).json({ ok:false, error:'nothing_to_cashout' });
-    const mult = lesenkaMultiplier(cleared);
+    const mult = lezenkaMultiplier(cleared);
     const payout = Math.floor(Number(sess.stake) * mult);
     const player = await updateResources(req.tgUser.id, { stars: payout });
     await deleteLesenka(req.tgUser.id);
     res.json({ ok:true, payout, multiplier: mult, player });
+  });
+
+  // Withdraw stars
+  app.post('/api/withdraw/stars', authMiddleware, async (req, res)=>{
+    try{
+      const allowed = [100,250,500,1000,2500,10000];
+      const { amount } = req.body || {};
+      const n = Number(amount)||0;
+      if (!allowed.includes(n)) return res.status(400).json({ ok:false, error:'bad_amount' });
+      const player = await getPlayer(req.tgUser.id);
+      if (!player) return res.status(404).json({ ok:false, error:'player_not_found' });
+      const fee = Math.ceil(n * 0.10);
+      const total = n + fee;
+      const have = Number(player.stars)||0;
+      if (have < total) return res.status(400).json({ ok:false, error:'not_enough_stars' });
+      // deduct immediately
+      const updated = await updateResources(req.tgUser.id, { stars: -total });
+      const w = await createWithdrawal({ telegram_id: req.tgUser.id, type:'stars', amount: n, fee });
+      // notify admin chat for processing
+      try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara2', `Новая заявка на вывод ★${n} от ${req.tgUser.id} (fee ${fee})\nID: ${w.id}`); }catch(e){ console.warn('notify failed', e); }
+      return res.json({ ok:true, request: w, player: updated });
+    }catch(e){ console.error('withdraw stars error', e); return res.status(500).json({ ok:false, error:'server_error' }); }
+  });
+
+  // Withdraw NFT
+  app.post('/api/withdraw/nft', authMiddleware, async (req, res)=>{
+    try{
+      const { nft_id } = req.body || {};
+      if (!nft_id) return res.status(400).json({ ok:false, error:'bad_request' });
+      const r = await pool.query('select * from nft_owned where id=$1 and telegram_id=$2', [nft_id, req.tgUser.id]);
+      if (r.rowCount===0) return res.status(404).json({ ok:false, error:'nft_not_found' });
+      const nft = r.rows[0];
+      // remove from owned to prevent duplicate withdraw
+      await pool.query('delete from nft_owned where id=$1', [nft_id]);
+      const w = await createWithdrawal({ telegram_id: req.tgUser.id, type:'nft', nft_type: nft.nft_type, nft_url: nft.url, fee:0 });
+      try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara4', `Новая заявка на вывод NFT (${nft.nft_type}) от ${req.tgUser.id}\nID: ${w.id}\nURL: ${nft.url}`); }catch(e){ console.warn('notify nft failed', e); }
+      return res.json({ ok:true, request: w });
+    }catch(e){ console.error('withdraw nft error', e); return res.status(500).json({ ok:false, error:'server_error' }); }
+  });
+
+  // Admin process withdraw (approve/reject)
+  app.post('/api/withdraw/process', authMiddleware, async (req, res)=>{
+    try{
+      const { id, action, refund, comment } = req.body || {};
+      if (!id || !['approve','reject'].includes(action)) return res.status(400).json({ ok:false, error:'bad_request' });
+      const w = await getWithdrawal(id);
+      if (!w) return res.status(404).json({ ok:false, error:'not_found' });
+      const updates = { admin_comment: comment || null, admin_id: req.tgUser.id, processed_at: new Date() };
+      if (action==='approve'){
+        updates.status = 'completed';
+        const num = await countCompletedWithdrawals();
+        // notify completed chat
+        try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara3', `Выполнена заявка #${num+1} ID:${w.id} от ${w.telegram_id} type:${w.type} amount:${w.amount || ''}`); }catch(e){ console.warn('notify complete failed', e); }
+      } else {
+        updates.status = 'rejected';
+        if (refund){
+          // refund amount+fee for stars, or restore nft by inserting back
+          if (w.type==='stars'){
+            await updateResources(w.telegram_id, { stars: Number(w.amount||0) + Number(w.fee||0) });
+          } else if (w.type==='nft'){
+            await pool.query('insert into nft_owned (telegram_id, nft_type, url) values ($1,$2,$3)', [w.telegram_id, w.nft_type, w.nft_url]);
+          }
+        }
+        try{ const { sendAdminMessage } = require('./bot'); sendAdminMessage('@zazarara3', `Отклонена заявка ID:${w.id} от ${w.telegram_id} reason:${comment || ''}`); }catch(e){ console.warn('notify reject failed', e); }
+      }
+      const updated = await updateWithdrawal(id, updates);
+      return res.json({ ok:true, request: updated });
+    }catch(e){ console.error('process withdraw error', e); return res.status(500).json({ ok:false, error:'server_error' }); }
   });
 
   return app;
